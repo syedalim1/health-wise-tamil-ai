@@ -134,6 +134,17 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
         </Alert>
       )}
 
+      {/* Chatbot Capabilities Prompt */}
+      <div className="text-sm text-gray-600 mb-4 p-3 bg-gray-100 rounded-md">
+        <p><strong>Chatbot Capabilities:</strong></p>
+        <ul className="list-disc list-inside">
+          <li>Users can ask health questions by symptom or tablet name</li>
+          <li>AI suggests correct tablet, timing, dosage, and side effects</li>
+          <li>AI detects emergency symptoms like chest pain and shows alerts</li>
+          <li>Chatbot replies in Tamil, English, Hindi, or Tanglish based on selection</li>
+        </ul>
+      </div>
+
       {/* Chat Messages */}
       <div className="flex-grow overflow-auto bg-gray-50 rounded-lg p-4 space-y-4 mb-4">
         {messages.map((message) => (
