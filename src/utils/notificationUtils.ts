@@ -5,6 +5,7 @@ interface NotificationOptions {
   body: string;
   icon?: string;
   lang?: string;
+  sound?: string;
 }
 
 export const askNotificationPermission = async (): Promise<boolean> => {
@@ -43,10 +44,14 @@ export const showNotification = async (options: NotificationOptions) => {
   if (!hasPermission) return;
 
   try {
+    // Note: Browser notifications using the Notification API and setTimeout will only work when the application is open and the script is running.
+    // For background notifications (when the app is closed), a service worker and potentially a push notification service are required.
     new Notification(options.title, {
       body: options.body,
       icon: options.icon || "/favicon.ico",
       lang: options.lang || "en",
+      // Add sound option - the actual sound played depends on the browser and OS settings
+      sound: 'default' // Or specify a URL to a sound file if supported by the browser/OS
     });
   } catch (error) {
     console.error("Error showing notification:", error);
