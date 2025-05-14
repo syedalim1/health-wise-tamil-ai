@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { PlusCircle, Clock, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { PlusCircle, Clock, Trash2, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,8 +12,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Language, getLanguageStrings } from '@/utils/languageUtils';
-import { scheduleMedicationReminder } from '@/utils/notificationUtils';
-import { toast } from 'sonner';
+import { scheduleMedicationReminder, askNotificationPermission } from '@/utils/notificationUtils';
+import { toast } from '@/components/ui/sonner';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface TabletReminderProps {
   language: Language;
@@ -24,21 +26,51 @@ interface Medication {
   name: string;
   dosage: string;
   schedule: string;
+  customTime: boolean;
+  hours?: number;
+  minutes?: number;
 }
 
 const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
   const strings = getLanguageStrings(language);
   const [isAddingMedication, setIsAddingMedication] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [newMedication, setNewMedication] = useState<{
     name: string;
     dosage: string;
     schedule: string;
+    customTime: boolean;
+    hours?: number;
+    minutes?: number;
   }>({
     name: '',
     dosage: '',
     schedule: 'morning',
+    customTime: false,
+    hours: 8,
+    minutes: 0,
   });
+
+  // Check notification permission on mount
+  useEffect(() => {
+    const checkPermission = async () => {
+      const hasPermission = await askNotificationPermission();
+      setNotificationsEnabled(hasPermission);
+    };
+    checkPermission();
+  }, []);
+
+  const handleRequestPermission = async () => {
+    const granted = await askNotificationPermission();
+    setNotificationsEnabled(granted);
+    
+    if (granted) {
+      toast.success("Notification permissions granted!");
+    } else {
+      toast.error("Please enable notifications in your browser settings to receive medication reminders.");
+    }
+  };
 
   const handleAddMedication = () => {
     if (!newMedication.name || !newMedication.dosage) {
@@ -51,12 +83,29 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
       ...newMedication,
     };
 
+    if (!notificationsEnabled) {
+      toast.warning("Notifications not enabled. Enable them to receive reminders.");
+      setIsAddingMedication(false);
+      setMedications([...medications, medication]);
+      setNewMedication({
+        name: '',
+        dosage: '',
+        schedule: 'morning',
+        customTime: false,
+        hours: 8,
+        minutes: 0,
+      });
+      return;
+    }
+
     // Schedule notification
     scheduleMedicationReminder(
       language,
       medication.name,
       medication.dosage,
-      medication.schedule
+      medication.schedule,
+      medication.customTime ? medication.hours : undefined,
+      medication.customTime ? medication.minutes : undefined
     );
 
     setMedications([...medications, medication]);
@@ -64,10 +113,15 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
       name: '',
       dosage: '',
       schedule: 'morning',
+      customTime: false,
+      hours: 8,
+      minutes: 0,
     });
     setIsAddingMedication(false);
 
-    toast.success(`${medication.name} reminder set for ${medication.schedule}`);
+    toast.success(`${medication.name} reminder set for ${medication.customTime ? 
+      `${medication.hours}:${medication.minutes < 10 ? '0' : ''}${medication.minutes}` : 
+      medication.schedule}`);
   };
 
   const handleDeleteMedication = (id: string) => {
@@ -80,6 +134,15 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
     { value: 'evening', label: strings.evening },
     { value: 'night', label: strings.night },
   ];
+
+  const handleCustomTimeChange = (isCustom: boolean) => {
+    setNewMedication({
+      ...newMedication,
+      customTime: isCustom,
+      hours: isCustom ? 8 : undefined,
+      minutes: isCustom ? 0 : undefined,
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -94,6 +157,22 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
           {strings.addMedication}
         </Button>
       </div>
+      
+      {!notificationsEnabled && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <Bell className="h-5 w-5 text-amber-500 mr-2" />
+            <p className="text-amber-800">Enable notifications to receive medication reminders</p>
+          </div>
+          <Button 
+            onClick={handleRequestPermission}
+            variant="outline" 
+            className="border-amber-400 text-amber-700 hover:bg-amber-100"
+          >
+            Enable Notifications
+          </Button>
+        </div>
+      )}
 
       {isAddingMedication && (
         <Card className="border border-health-primary/20 shadow-sm">
@@ -126,26 +205,87 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
                 />
               </div>
               
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  {strings.schedule} *
-                </label>
-                <Select 
-                  value={newMedication.schedule}
-                  onValueChange={(value) => setNewMedication({...newMedication, schedule: value})}
-                >
-                  <SelectTrigger className="input-health">
-                    <SelectValue placeholder={strings.schedule} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {scheduleOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="flex items-center space-x-2 mb-2">
+                <Switch 
+                  id="custom-time"
+                  checked={newMedication.customTime}
+                  onCheckedChange={handleCustomTimeChange}
+                />
+                <Label htmlFor="custom-time">Set custom time</Label>
               </div>
+              
+              {newMedication.customTime ? (
+                <div className="flex space-x-4">
+                  <div className="w-1/2">
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                      Hours *
+                    </label>
+                    <Select 
+                      value={newMedication.hours?.toString() || "8"}
+                      onValueChange={(value) => setNewMedication({
+                        ...newMedication, 
+                        hours: parseInt(value)
+                      })}
+                    >
+                      <SelectTrigger className="input-health">
+                        <SelectValue placeholder="Hours" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({length: 24}, (_, i) => (
+                          <SelectItem key={i} value={i.toString()}>
+                            {i < 10 ? `0${i}` : i} {i >= 12 ? 'PM' : 'AM'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="w-1/2">
+                    <label className="text-sm font-medium text-gray-700 mb-1 block">
+                      Minutes *
+                    </label>
+                    <Select 
+                      value={newMedication.minutes?.toString() || "0"}
+                      onValueChange={(value) => setNewMedication({
+                        ...newMedication, 
+                        minutes: parseInt(value)
+                      })}
+                    >
+                      <SelectTrigger className="input-health">
+                        <SelectValue placeholder="Minutes" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({length: 60}, (_, i) => (
+                          <SelectItem key={i} value={i.toString()}>
+                            {i < 10 ? `0${i}` : i}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    {strings.schedule} *
+                  </label>
+                  <Select 
+                    value={newMedication.schedule}
+                    onValueChange={(value) => setNewMedication({...newMedication, schedule: value})}
+                  >
+                    <SelectTrigger className="input-health">
+                      <SelectValue placeholder={strings.schedule} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {scheduleOptions.map(option => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               
               <div className="flex justify-end space-x-2 pt-2">
                 <Button 
@@ -181,7 +321,16 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {medications.map((medication) => {
-            const scheduleLabel = scheduleOptions.find(opt => opt.value === medication.schedule)?.label;
+            let timeDisplay;
+            if (medication.customTime && medication.hours !== undefined && medication.minutes !== undefined) {
+              const formattedHours = medication.hours % 12 || 12;
+              const ampm = medication.hours >= 12 ? 'PM' : 'AM';
+              const formattedMinutes = medication.minutes < 10 ? `0${medication.minutes}` : medication.minutes;
+              timeDisplay = `${formattedHours}:${formattedMinutes} ${ampm}`;
+            } else {
+              const scheduleLabel = scheduleOptions.find(opt => opt.value === medication.schedule)?.label;
+              timeDisplay = scheduleLabel;
+            }
             
             return (
               <Card key={medication.id} className="card-health">
@@ -192,7 +341,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
                       <p className="text-gray-600 text-sm">{medication.dosage}</p>
                       <div className="flex items-center mt-2">
                         <Clock className="h-4 w-4 text-health-primary mr-1" />
-                        <span className="text-sm health-badge-blue">{scheduleLabel}</span>
+                        <span className="text-sm health-badge-blue">{timeDisplay}</span>
                       </div>
                     </div>
                     <Button 
