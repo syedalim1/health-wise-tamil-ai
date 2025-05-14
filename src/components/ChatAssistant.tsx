@@ -7,12 +7,18 @@ import { Avatar } from "@/components/ui/avatar";
 import { Language, getLanguageStrings } from "@/utils/languageUtils";
 import { isEmergencyMessage } from "@/utils/emergencyUtils";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  getChatHistory,
+  saveMessageToLocalStorage,
+} from "@/utils/localStorageUtils";
 
 interface ChatAssistantProps {
   language: Language;
 }
 
-interface Message {
+export interface Message {
   id: string;
   content: string;
   isUser: boolean;
@@ -22,23 +28,10 @@ interface Message {
 
 const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
   const strings = getLanguageStrings(language);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      content:
-        language === "english"
-          ? "Hello! I'm your health assistant. How can I help you today?"
-          : language === "tamil"
-          ? "வணக்கம்! நான் உங்கள் ஆரோக்கிய உதவியாளர். இன்று நான் உங்களுக்கு எப்படி உதவ முடியும்?"
-          : language === "hindi"
-          ? "नमस्ते! मैं आपका स्वास्थ्य सहायक हूं। आज मैं आपकी कैसे मदद कर सकता हूं?"
-          : "Vanakkam! Naan unga arokkiya uthaviyalar. Inru naan ungalukku eppadi udhava mudiyum?",
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
+  const { toast } = useToast();
   const messageEndRef = useRef<HTMLDivElement>(null);
 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -46,6 +39,23 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash-preview-04-17",
   });
+
+  const prompt = `
+You are a multilingual medical assistant for a tablet reminder app.
+
+The user asked: {userMessage}
+
+The user will ask questions related to their health — either by mentioning symptoms (like headache, chest pain) or by tablet name (like Paracetamol).
+
+Your task is to:
+- Suggest the most suitable tablet for the symptom, if the user describes a health issue.
+- Provide full information about the tablet if the user asks by name: include uses, dosage, timing, side effects, and precautions.
+- If the user mentions emergency symptoms like chest pain, vomiting, dizziness, or fainting — immediately warn them:
+  → "This might be an emergency. Please call 108 or visit the nearest hospital."
+
+Use clear, friendly, and medically accurate language.
+If unsure about a symptom, recommend that they consult a real doctor.
+`;
 
   if (!apiKey) {
     console.error(
@@ -57,6 +67,12 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Load chat history from local storage on component mount
+  useEffect(() => {
+    const history = getChatHistory();
+    setMessages(history);
+  }, []);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
@@ -79,8 +95,11 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
     setMessages((prev) => [...prev, userMessage]);
     setNewMessage("");
 
+
+    }
+
     try {
-      const result = await model.generateContent(newMessage);
+      const result = await model.generateContent(prompt.replace("{userMessage}", newMessage) );
       const response = await result.response;
       const text = response.text();
 
@@ -93,6 +112,27 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+
+      // Save to local storage
+      saveMessageToLocalStorage(aiMessage);
+
+      // Save to Supabase
+      const { error: aiMsgError } = await supabase
+        .from("chat_messages")
+        .insert({
+          content: aiMessage.content,
+          is_user: false,
+          timestamp: aiMessage.timestamp.toISOString(),
+          model: aiMessage.model,
+        });
+
+      if (aiMsgError) {
+        toast({
+          title: "Error saving response",
+          description: "Failed to save AI response to history",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Gemini AI error:", error);
       const aiMessage: Message = {
