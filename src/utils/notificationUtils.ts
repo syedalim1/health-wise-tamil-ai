@@ -30,13 +30,23 @@ export const askNotificationPermission = async (): Promise<boolean> => {
   return Notification.permission === "granted";
 };
 
-export const scheduleNotification = (
+export const scheduleNotification = async (
   timeInMs: number,
   options: NotificationOptions
 ) => {
-  setTimeout(() => {
-    showNotification(options);
-  }, timeInMs);
+  if ('serviceWorker' in navigator) {
+    const registration = await navigator.serviceWorker.ready;
+    registration.active?.postMessage({
+      type: 'scheduleNotification',
+      timeInMs,
+      options
+    });
+  } else {
+    // Fallback for environments without service worker support
+    setTimeout(() => {
+      showNotification(options);
+    }, timeInMs);
+  }
 };
 
 export const showNotification = async (options: NotificationOptions) => {
@@ -46,17 +56,33 @@ export const showNotification = async (options: NotificationOptions) => {
   try {
     // Note: Browser notifications using the Notification API and setTimeout will only work when the application is open and the script is running.
     // For background notifications (when the app is closed), a service worker and potentially a push notification service are required.
-    new Notification(options.title, {
+    const notification = new Notification(options.title, {
       body: options.body,
       icon: options.icon || "/favicon.ico",
       lang: options.lang || "en",
-      // Add sound option - the actual sound played depends on the browser and OS settings
-      sound: 'default' // Or specify a URL to a sound file if supported by the browser/OS
     });
+
+    // For foreground notifications (when app is open), play sound immediately
+    if (options.sound) {
+      const audio = new Audio(options.sound);
+      await audio.play();
+    }
   } catch (error) {
     console.error("Error showing notification:", error);
   }
 };
+
+// Handle sound playback when triggered from service worker
+window.addEventListener('message', (event) => {
+  if (event.data.type === 'playSound' && event.data.sound) {
+    try {
+      const audio = new Audio(event.data.sound);
+      audio.play();
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
+  }
+});
 
 export const getScheduleTime = (timeOfDay: string, hours?: number, minutes?: number): Date => {
   const now = new Date();

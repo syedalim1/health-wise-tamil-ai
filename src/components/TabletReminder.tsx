@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, Clock, Trash2, Bell } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { PlusCircle, Clock, Trash2, Bell, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +29,7 @@ interface Medication {
   customTime: boolean;
   hours?: number;
   minutes?: number;
+  recurring?: boolean;
 }
 
 const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
@@ -36,6 +37,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
   const [isAddingMedication, setIsAddingMedication] = useState(false);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [isDbReady, setIsDbReady] = useState(false);
   const [newMedication, setNewMedication] = useState<{
     name: string;
     dosage: string;
@@ -43,6 +45,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
     customTime: boolean;
     hours?: number;
     minutes?: number;
+    recurring?: boolean;
   }>({
     name: '',
     dosage: '',
@@ -50,7 +53,100 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
     customTime: false,
     hours: 8,
     minutes: 0,
+    recurring: true,
   });
+
+  // IndexedDB setup
+  const DB_NAME = 'MedicationDB';
+  const STORE_NAME = 'medications';
+
+  const openDatabase = useCallback((): Promise<IDBDatabase> => {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, 1);
+      
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+        }
+      };
+      
+      request.onsuccess = (event) => {
+        resolve((event.target as IDBOpenDBRequest).result);
+      };
+      
+      request.onerror = (event) => {
+        reject((event.target as IDBOpenDBRequest).error);
+      };
+    });
+  }, []);
+
+  const saveToDatabase = useCallback(async (medication: Medication) => {
+    try {
+      const db = await openDatabase();
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.put(medication);
+      return true;
+    } catch (error) {
+      console.error('Error saving to database:', error);
+      return false;
+    }
+  }, [openDatabase]);
+
+  const loadFromDatabase = useCallback(async () => {
+    try {
+      const db = await openDatabase();
+      const transaction = db.transaction(STORE_NAME, 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const request = store.getAll();
+      
+      return new Promise<Medication[]>((resolve, reject) => {
+        request.onsuccess = (event) => {
+          resolve((event.target as IDBRequest).result);
+        };
+        request.onerror = (event) => {
+          reject((event.target as IDBRequest).error);
+        };
+      });
+    } catch (error) {
+      console.error('Error loading from database:', error);
+      return [];
+    }
+  }, [openDatabase]);
+
+  const deleteFromDatabase = useCallback(async (id: string) => {
+    try {
+      const db = await openDatabase();
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      store.delete(id);
+      return true;
+    } catch (error) {
+      console.error('Error deleting from database:', error);
+      return false;
+    }
+  }, [openDatabase]);
+
+  // Initialize database and load medications
+  useEffect(() => {
+    const initDatabase = async () => {
+      try {
+        const db = await openDatabase();
+        db.close();
+        setIsDbReady(true);
+        
+        // Load existing medications
+        const savedMedications = await loadFromDatabase();
+        setMedications(savedMedications);
+      } catch (error) {
+        console.error('Database initialization failed:', error);
+        toast.error('Failed to initialize medication database');
+      }
+    };
+    
+    initDatabase();
+  }, [openDatabase, loadFromDatabase]);
 
   // Check notification permission on mount
   useEffect(() => {
@@ -72,7 +168,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
     }
   };
 
-  const handleAddMedication = () => {
+  const handleAddMedication = async () => {
     if (!newMedication.name || !newMedication.dosage) {
       toast("Please fill all required fields");
       return;
@@ -85,7 +181,24 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
 
     if (!notificationsEnabled) {
       toast.warning("Notifications not enabled. Enable them to receive reminders.");
-      setIsAddingMedication(false);
+    }
+
+    // Schedule notification
+    if (notificationsEnabled) {
+      scheduleMedicationReminder(
+        language,
+        medication.name,
+        medication.dosage,
+        medication.schedule,
+        medication.customTime ? medication.hours : undefined,
+        medication.customTime ? medication.minutes : undefined
+      );
+    }
+
+    // Save to database
+    const saved = await saveToDatabase(medication);
+    
+    if (saved) {
       setMedications([...medications, medication]);
       setNewMedication({
         name: '',
@@ -94,38 +207,29 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
         customTime: false,
         hours: 8,
         minutes: 0,
+        recurring: true,
       });
-      return;
+      setIsAddingMedication(false);
+      
+      toast.success(`${medication.name} reminder set for ${medication.customTime ? 
+        `${medication.hours}:${medication.minutes < 10 ? '0' : ''}${medication.minutes}` : 
+        medication.schedule}`);
+    } else {
+      toast.error("Failed to save medication to database");
     }
-
-    // Schedule notification
-    scheduleMedicationReminder(
-      language,
-      medication.name,
-      medication.dosage,
-      medication.schedule,
-      medication.customTime ? medication.hours : undefined,
-      medication.customTime ? medication.minutes : undefined
-    );
-
-    setMedications([...medications, medication]);
-    setNewMedication({
-      name: '',
-      dosage: '',
-      schedule: 'morning',
-      customTime: false,
-      hours: 8,
-      minutes: 0,
-    });
-    setIsAddingMedication(false);
-
-    toast.success(`${medication.name} reminder set for ${medication.customTime ? 
-      `${medication.hours}:${medication.minutes < 10 ? '0' : ''}${medication.minutes}` : 
-      medication.schedule}`);
   };
 
-  const handleDeleteMedication = (id: string) => {
-    setMedications(medications.filter(med => med.id !== id));
+  const handleDeleteMedication = async (id: string) => {
+    // Remove from database
+    const deleted = await deleteFromDatabase(id);
+    
+    if (deleted) {
+      // Remove from state
+      setMedications(medications.filter(med => med.id !== id));
+      toast.success("Medication reminder removed");
+    } else {
+      toast.error("Failed to remove medication from database");
+    }
   };
 
   const scheduleOptions = [
@@ -148,14 +252,25 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold text-gray-800">{strings.tabletReminder}</h2>
-        <Button 
-          onClick={() => setIsAddingMedication(!isAddingMedication)}
-          variant="ghost"
-          className="text-health-primary hover:text-health-primary/90 hover:bg-health-light"
-        >
-          <PlusCircle className="h-5 w-5 mr-1" />
-          {strings.addMedication}
-        </Button>
+        <div className="flex space-x-2">
+          <Button 
+            onClick={() => setIsAddingMedication(!isAddingMedication)}
+            variant="ghost"
+            className="text-health-primary hover:text-health-primary/90 hover:bg-health-light"
+          >
+            <PlusCircle className="h-5 w-5 mr-1" />
+            {strings.addMedication}
+          </Button>
+          {isDbReady && (
+            <Button 
+              variant="ghost"
+              className="text-gray-500 hover:text-gray-700"
+              title="Data saved locally"
+            >
+              <Database className="h-5 w-5" />
+            </Button>
+          )}
+        </div>
       </div>
       
       {!notificationsEnabled && (
@@ -171,6 +286,12 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
           >
             Enable Notifications
           </Button>
+        </div>
+      )}
+      
+      {!isDbReady && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-blue-800">Initializing medication database...</p>
         </div>
       )}
 
@@ -212,6 +333,15 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
                   onCheckedChange={handleCustomTimeChange}
                 />
                 <Label htmlFor="custom-time">Set custom time</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2 mb-2">
+                <Switch 
+                  id="recurring"
+                  checked={newMedication.recurring ?? true}
+                  onCheckedChange={(checked) => setNewMedication({...newMedication, recurring: checked})}
+                />
+                <Label htmlFor="recurring">Recurring reminder</Label>
               </div>
               
               {newMedication.customTime ? (
@@ -339,10 +469,13 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
                     <div>
                       <h3 className="font-medium text-lg">{medication.name}</h3>
                       <p className="text-gray-600 text-sm">{medication.dosage}</p>
-                      <div className="flex items-center mt-2">
-                        <Clock className="h-4 w-4 text-health-primary mr-1" />
-                        <span className="text-sm health-badge-blue">{timeDisplay}</span>
-                      </div>
+              <div className="flex items-center mt-2">
+                <Clock className="h-4 w-4 text-health-primary mr-1" />
+                <span className="text-sm health-badge-blue">{timeDisplay}</span>
+                {!medication.recurring && (
+                  <span className="ml-2 text-xs text-gray-500">(One-time)</span>
+                )}
+              </div>
                     </div>
                     <Button 
                       variant="ghost" 
