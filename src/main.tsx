@@ -6,7 +6,11 @@ import { askNotificationPermission } from './utils/notificationUtils.ts'
 
 // Request notification permission when the app loads
 const requestPermission = async () => {
-  await askNotificationPermission();
+  try {
+    await askNotificationPermission();
+  } catch (error) {
+    console.error("Error requesting notification permissions:", error);
+  }
 };
 
 // Request permission only after user interaction

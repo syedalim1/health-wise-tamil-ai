@@ -6,20 +6,40 @@ import StockTracker from '@/components/StockTracker';
 import ChatAssistant from '@/components/ChatAssistant';
 import { Language } from '@/utils/languageUtils';
 import { askNotificationPermission } from '@/utils/notificationUtils';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 
 const Index = () => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>('english');
   const [activeTab, setActiveTab] = useState<string>('reminder');
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(false);
 
   useEffect(() => {
     // Request notification permissions when the app loads
     const requestPermission = async () => {
-      const hasPermission = await askNotificationPermission();
-      if (hasPermission) {
-        toast.success("Notifications enabled. You will receive medication reminders.");
-      } else {
-        toast.error("Please enable notifications to receive medication reminders.");
+      try {
+        const hasPermission = await askNotificationPermission();
+        setNotificationsEnabled(hasPermission);
+        
+        if (hasPermission) {
+          toast({
+            title: "Notifications enabled",
+            description: "You will receive medication reminders.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Notifications disabled",
+            description: "Please enable notifications to receive medication reminders.",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error requesting notification permission:", error);
+        toast({
+          title: "Error",
+          description: "Could not request notification permissions.",
+          variant: "destructive",
+        });
       }
     };
     
