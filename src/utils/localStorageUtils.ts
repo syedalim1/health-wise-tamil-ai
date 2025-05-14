@@ -20,10 +20,15 @@ export const getChatHistory = (): Message[] => {
     const parsed = JSON.parse(historyString);
     // Ensure we have an array and validate basic structure
     if (Array.isArray(parsed)) {
-      return parsed.filter(item => 
-        typeof item.content === "string" && 
-        typeof item.isUser === "boolean"
-      );
+      return parsed
+        .filter(item => 
+          typeof item.content === "string" && 
+          typeof item.isUser === "boolean"
+        )
+        .map(item => ({
+          ...item,
+          timestamp: new Date(item.timestamp)
+        }));
     }
     return [];
   } catch (error) {

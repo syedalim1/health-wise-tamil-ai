@@ -26,7 +26,9 @@ export interface Message {
   model?: string;
 }
 
-const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
+const ChatAssistant: React.FC<ChatAssistantProps> = ({
+  language,
+}): React.ReactNode => {
   const strings = getLanguageStrings(language);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -37,7 +39,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash-preview-04-17",
+    model: "gemini-2.0-flash",
   });
 
   const prompt = `
@@ -52,6 +54,7 @@ Your task is to:
 - Provide full information about the tablet if the user asks by name: include uses, dosage, timing, side effects, and precautions.
 - If the user mentions emergency symptoms like chest pain, vomiting, dizziness, or fainting — immediately warn them:
   → "This might be an emergency. Please call 108 or visit the nearest hospital."
+- Always answer in the user's selected language: {userLanguage}.
 
 Use clear, friendly, and medically accurate language.
 If unsure about a symptom, recommend that they consult a real doctor.
@@ -95,11 +98,12 @@ If unsure about a symptom, recommend that they consult a real doctor.
     setMessages((prev) => [...prev, userMessage]);
     setNewMessage("");
 
-
-    }
-
     try {
-      const result = await model.generateContent(prompt.replace("{userMessage}", newMessage) );
+      const dynamicPrompt = prompt
+        .replace("{userMessage}", newMessage)
+        .replace("{userLanguage}", language);
+      
+      const result = await model.generateContent(dynamicPrompt);
       const response = await result.response;
       const text = response.text();
 
@@ -112,27 +116,6 @@ If unsure about a symptom, recommend that they consult a real doctor.
       };
 
       setMessages((prev) => [...prev, aiMessage]);
-
-      // Save to local storage
-      saveMessageToLocalStorage(aiMessage);
-
-      // Save to Supabase
-      const { error: aiMsgError } = await supabase
-        .from("chat_messages")
-        .insert({
-          content: aiMessage.content,
-          is_user: false,
-          timestamp: aiMessage.timestamp.toISOString(),
-          model: aiMessage.model,
-        });
-
-      if (aiMsgError) {
-        toast({
-          title: "Error saving response",
-          description: "Failed to save AI response to history",
-          variant: "destructive",
-        });
-      }
     } catch (error) {
       console.error("Gemini AI error:", error);
       const aiMessage: Message = {
