@@ -43,7 +43,9 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.5-flash-preview-04-17",
+  });
 
   if (!apiKey) {
     console.error(
@@ -136,12 +138,19 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ language }) => {
 
       {/* Chatbot Capabilities Prompt */}
       <div className="text-sm text-gray-600 mb-4 p-3 bg-gray-100 rounded-md">
-        <p><strong>Chatbot Capabilities:</strong></p>
+        <p>
+          <strong>Chatbot Capabilities:</strong>
+        </p>
         <ul className="list-disc list-inside">
           <li>Users can ask health questions by symptom or tablet name</li>
           <li>AI suggests correct tablet, timing, dosage, and side effects</li>
-          <li>AI detects emergency symptoms like chest pain and shows alerts</li>
-          <li>Chatbot replies in Tamil, English, Hindi, or Tanglish based on selection</li>
+          <li>
+            AI detects emergency symptoms like chest pain and shows alerts
+          </li>
+          <li>
+            Chatbot replies in Tamil, English, Hindi, or Tanglish based on
+            selection
+          </li>
         </ul>
       </div>
 
