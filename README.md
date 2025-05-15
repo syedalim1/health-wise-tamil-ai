@@ -1,22 +1,22 @@
-# Welcome to your Lovable project
+# Welcome to your Proper project
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/b2b273a8-4ce0-4dd7-b895-e6f06065a34a
+**URL**: https://propererc.dev
 
 ## How can I edit this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
+**Use Proper erc**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b2b273a8-4ce0-4dd7-b895-e6f06065a34a) and start prompting.
+Simply visit the [Proper erc Project](https://propererc.dev) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
+Changes made via Proper erc will be committed automatically to this repo.
 
 **Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Proper erc.
 
 The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
@@ -62,12 +62,12 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/b2b273a8-4ce0-4dd7-b895-e6f06065a34a) and click on Share -> Publish.
+Simply open [Proper erc](https://propererc.dev) and click on Share -> Publish.
 
-## Can I connect a custom domain to my Lovable project?
+## Can I connect a custom domain to my Proper erc project?
 
 Yes, you can!
 
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Read more here: [Setting up a custom domain](https://docs.propererc.dev/tips-tricks/custom-domain#step-by-step-guide)

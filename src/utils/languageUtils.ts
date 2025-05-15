@@ -1,9 +1,9 @@
 
+// author Syed SEO
+// remove unwanted seo
 export type Language = 'english' | 'tamil' | 'hindi' | 'tanglish';
 
 export interface LanguageStrings {
-  appTitle: string;
-  tabletReminder: string;
   stockTracker: string;
   chatAssistant: string;
   morning: string;
@@ -27,8 +27,6 @@ export interface LanguageStrings {
 
 // The base English strings
 const englishStrings: LanguageStrings = {
-  appTitle: "Smart Health Companion",
-  tabletReminder: "Medication Reminders",
   stockTracker: "Stock Tracker",
   chatAssistant: "Health Assistant",
   morning: "Morning",
@@ -52,8 +50,6 @@ const englishStrings: LanguageStrings = {
 
 // Tamil translations
 const tamilStrings: LanguageStrings = {
-  appTitle: "ஸ்மார்ட் ஹெல்த் கம்பானியன்",
-  tabletReminder: "மருந்து நினைவூட்டல்கள்",
   stockTracker: "ஸ்டாக் ட்ராக்கர்",
   chatAssistant: "ஆரோக்கிய உதவியாளர்",
   morning: "காலை",
@@ -77,8 +73,6 @@ const tamilStrings: LanguageStrings = {
 
 // Hindi translations
 const hindiStrings: LanguageStrings = {
-  appTitle: "स्मार्ट हेल्थ कम्पैनियन",
-  tabletReminder: "दवा अनुस्मारक",
   stockTracker: "स्टॉक ट्रैकर",
   chatAssistant: "स्वास्थ्य सहायक",
   morning: "सुबह",
@@ -102,8 +96,6 @@ const hindiStrings: LanguageStrings = {
 
 // Tanglish translations (Tamil written with English characters)
 const tanglishStrings: LanguageStrings = {
-  appTitle: "Smart Health Companion",
-  tabletReminder: "Marundu Ninaivutalgal",
   stockTracker: "Stock Tracker",
   chatAssistant: "Arokkiya Uthaviyalar",
   morning: "Kaalai",

@@ -25,7 +25,6 @@ const Navbar: React.FC<NavbarProps> = ({
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-2">
             <PillIcon className="h-6 w-6 text-health-primary" />
-            <span className="font-bold text-lg text-health-primary">{strings.appTitle}</span>
           </div>
           
           <div className="md:hidden flex items-center space-x-2">
@@ -45,7 +44,7 @@ const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Clock className="h-4 w-4" />
-              <span>{strings.tabletReminder}</span>
+              <span>Reminder</span>
             </button>
             
             <button 
@@ -89,7 +88,7 @@ const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <Clock className="h-5 w-5" />
-              <span className="text-xs mt-1">{strings.tabletReminder}</span>
+              <span className="text-xs mt-1">Reminder</span>
             </button>
             
             <button 
