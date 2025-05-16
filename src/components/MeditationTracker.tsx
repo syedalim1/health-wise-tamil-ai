@@ -607,48 +607,7 @@ const MeditationTracker: React.FC<MeditationTrackerProps> = ({ language }) => {
                         </div>
                       </div>
 
-                      {/* Calendar heatmap visualization (simplified) */}
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h3 className="font-medium text-sm mb-3">
-                          Meditation Calendar
-                        </h3>
-                        <div className="grid grid-cols-7 gap-1">
-                          {Array.from({ length: 28 }).map((_, i) => {
-                            const date = new Date();
-                            date.setDate(date.getDate() - (27 - i));
-                            const dateStr = date.toDateString();
-                            const sessionsOnDay = sessions.filter(
-                              (s) => new Date(s.date).toDateString() === dateStr
-                            );
-                            const intensity =
-                              sessionsOnDay.length > 0
-                                ? sessionsOnDay.length > 2
-                                  ? "bg-health-primary"
-                                  : sessionsOnDay.length > 1
-                                  ? "bg-health-primary/70"
-                                  : "bg-health-primary/40"
-                                : "bg-gray-200";
-
-                            return (
-                              <div
-                                key={i}
-                                className={`h-6 w-6 rounded-sm ${intensity} transition-colors`}
-                                title={`${date.toLocaleDateString()}: ${
-                                  sessionsOnDay.length
-                                } sessions`}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="mt-2 flex justify-end items-center gap-2 text-xs text-gray-500">
-                          <span>Less</span>
-                          <div className="w-3 h-3 rounded-sm bg-gray-200"></div>
-                          <div className="w-3 h-3 rounded-sm bg-health-primary/40"></div>
-                          <div className="w-3 h-3 rounded-sm bg-health-primary/70"></div>
-                          <div className="w-3 h-3 rounded-sm bg-health-primary"></div>
-                          <span>More</span>
-                        </div>
-                      </div>
+                   
                     </div>
                   )}
                 </TabsContent>
