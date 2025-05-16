@@ -18,6 +18,7 @@ import Profile from "./components/Profile";
 import Settings from "./components/Settings";
 import Navbar from "./components/Navbar";
 import MobileActionBar from "./components/MobileActionBar";
+import NotificationManager from "./components/NotificationManager";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +40,7 @@ const AppContent = () => {
     const tab =
       path === "/"
         ? "reminder"
-        :  path === "/meditation"
+        : path === "/meditation"
         ? "meditation"
         : path === "/stock"
         ? "stock"
@@ -60,6 +61,9 @@ const AppContent = () => {
 
   return (
     <>
+      {/* Add NotificationManager to handle background notifications */}
+      <NotificationManager />
+
       <Navbar
         currentLanguage={currentLanguage}
         onLanguageChange={setCurrentLanguage}
@@ -81,7 +85,7 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/meditation"
           element={
@@ -90,7 +94,7 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-      
+
         <Route
           path="/chat"
           element={

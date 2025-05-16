@@ -60,19 +60,64 @@ export const scheduleNotification = async (
   timeInMs: number,
   options: NotificationOptions
 ) => {
+  if (!("Notification" in window)) {
+    console.error("Notifications not supported in this browser");
+    return;
+  }
+
+  // Always try to set up both service worker and Firebase notifications
+  // Service worker for when app is open or in background
   if ("serviceWorker" in navigator) {
-    const registration = await navigator.serviceWorker.ready;
-    registration.active?.postMessage({
-      type: "scheduleNotification",
-      timeInMs,
-      options,
-    });
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (registration.active) {
+        console.log("Scheduling notification via service worker");
+        registration.active.postMessage({
+          type: "scheduleNotification",
+          timeInMs,
+          options,
+        });
+      } else {
+        console.warn("Service worker is registered but not active");
+        fallbackScheduleNotification(timeInMs, options);
+      }
+    } catch (error) {
+      console.error("Error scheduling via service worker:", error);
+      fallbackScheduleNotification(timeInMs, options);
+    }
   } else {
     // Fallback for environments without service worker support
-    setTimeout(() => {
-      showNotification(options);
-    }, timeInMs);
+    fallbackScheduleNotification(timeInMs, options);
   }
+
+  // Also schedule using Firebase Cloud Messaging if possible
+  // This works when the browser is closed
+  try {
+    const fcmToken = localStorage.getItem("fcmToken");
+    if (fcmToken) {
+      const scheduleTime = new Date(Date.now() + timeInMs).toISOString();
+      await scheduleFCMNotification(
+        new Date(Date.now() + timeInMs),
+        options.data?.medicationName || "Medication",
+        options.data?.dosage || "",
+        scheduleTime,
+        options.data?.medicationId
+      );
+    }
+  } catch (error) {
+    console.error("Error scheduling FCM notification:", error);
+  }
+};
+
+// Fallback notification method for browsers without service worker
+const fallbackScheduleNotification = (
+  timeInMs: number,
+  options: NotificationOptions
+) => {
+  console.log("Using fallback notification scheduler");
+  setTimeout(() => {
+    showNotification(options);
+  }, timeInMs);
 };
 
 export const showNotification = async (options: NotificationOptions) => {
@@ -236,31 +281,69 @@ export const scheduleFCMNotification = async (
 
     if (!fcmToken) {
       console.log("No FCM token available for cloud notifications");
-      return;
+      return false;
     }
 
-    // Send request to backend API to schedule the notification
-    const response = await fetch("/api/schedule-medication", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        token: fcmToken,
-        scheduleTime: scheduleDate.toISOString(),
-        medicationName,
-        dosage,
-        timeDisplay,
-        medicationId,
-      }),
-    });
+    // Try to use your backend API if available
+    try {
+      const response = await fetch("/api/schedule-medication", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          token: fcmToken,
+          scheduleTime: scheduleDate.toISOString(),
+          title: "Medication Reminder",
+          body: `${medicationName} - ${dosage}`,
+          data: { medicationId },
+        }),
+      });
 
-    if (response.ok) {
-      console.log("Cloud notification scheduled successfully");
-    } else {
-      console.error("Failed to schedule cloud notification");
+      if (response.ok) {
+        console.log("Cloud notification scheduled successfully");
+        return true;
+      } else {
+        throw new Error("Failed to schedule cloud notification");
+      }
+    } catch (apiError) {
+      console.warn(
+        "Could not schedule via API, using client-side fallback:",
+        apiError
+      );
+
+      // Store the scheduled notification in localStorage
+      // This isn't ideal but provides some redundancy
+      try {
+        const scheduledNotifications = JSON.parse(
+          localStorage.getItem("scheduledNotifications") || "[]"
+        );
+
+        scheduledNotifications.push({
+          id: Date.now().toString(),
+          scheduleTime: scheduleDate.toISOString(),
+          title: "Medication Reminder",
+          body: `${medicationName} - ${dosage}`,
+          medicationId,
+        });
+
+        localStorage.setItem(
+          "scheduledNotifications",
+          JSON.stringify(scheduledNotifications)
+        );
+
+        console.log("Stored notification in localStorage for redundancy");
+        return true;
+      } catch (storageError) {
+        console.error(
+          "Failed to store notification in localStorage:",
+          storageError
+        );
+        return false;
+      }
     }
   } catch (error) {
     console.error("Error scheduling cloud notification:", error);
+    return false;
   }
 };
