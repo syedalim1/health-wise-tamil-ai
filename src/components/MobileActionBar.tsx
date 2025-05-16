@@ -31,7 +31,6 @@ const MobileActionBar: React.FC<MobileActionBarProps> = ({
     if (path === "/") setActiveTab("home");
     else if (path === "/meditation") setActiveTab("meditation");
     else if (path === "/profile") setActiveTab("profile");
-    else if (path === "/stock") setActiveTab("stock");
     else if (path === "/chat") setActiveTab("chat");
   }, [location]);
 
@@ -59,9 +58,7 @@ const MobileActionBar: React.FC<MobileActionBarProps> = ({
           duration: 2000,
         });
         break;
-      case "stock":
-        navigate("/stock");
-        break;
+      
       case "chat":
         navigate("/chat");
         break;
@@ -154,35 +151,7 @@ const MobileActionBar: React.FC<MobileActionBarProps> = ({
 
           
 
-          {/* Stock Button */}
-          <motion.div
-            variants={tabVariants}
-            animate={activeTab === "stock" ? "active" : "inactive"}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`flex flex-col items-center rounded-lg p-1 relative ${
-                activeTab === "stock"
-                  ? "text-amber-500 bg-amber-50"
-                  : "text-gray-600 hover:text-amber-500"
-              }`}
-              onClick={() => handleQuickAction("stock")}
-            >
-              <Bell
-                className={`h-5 w-5 ${activeTab === "stock" ? "stroke-2" : ""}`}
-              />
-
-              {/* Notification indicator */}
-              <motion.div
-                variants={pulseVariants}
-                animate="pulse"
-                className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full"
-              />
-
-              <span className="text-xs mt-1 font-medium">Stock</span>
-            </Button>
-          </motion.div>
+       
 
           {/* Chat Button */}
           <motion.div
