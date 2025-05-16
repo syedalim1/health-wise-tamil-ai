@@ -668,27 +668,7 @@ const MeditationTracker: React.FC<MeditationTrackerProps> = ({ language }) => {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="meditation-type">{strings.meditationType}</Label>
-              <Select
-                value={currentSession.type}
-                onValueChange={(value) =>
-                  setCurrentSession({ ...currentSession, type: value })
-                }
-              >
-                <SelectTrigger className="input-health">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {meditationTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+           
             <div>
               <Label htmlFor="notes">{strings.meditationNotes}</Label>
               <Input
