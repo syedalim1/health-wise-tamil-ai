@@ -112,7 +112,7 @@ const Settings: React.FC<SettingsProps> = ({ language }) => {
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <Bell className="h-4 w-4" />
-                  <span className="font-medium">Medication Reminders</span>
+                  <span className="font-medium">Medication Cares</span>
                 </div>
                 <p className="text-sm text-gray-500">
                   Receive alerts when it's time to take your medication

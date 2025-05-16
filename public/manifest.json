@@ -1,7 +1,7 @@
 {
   "name": "HealthWise Tamil AI",
   "short_name": "HealthWise",
-  "description": "Smart health companion with medication reminders",
+  "description": "Smart health companion with Medication Cares",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

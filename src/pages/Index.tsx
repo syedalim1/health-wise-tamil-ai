@@ -26,14 +26,14 @@ const Index = () => {
         if (hasPermission) {
           toast({
             title: "Notifications enabled",
-            description: "You will receive medication reminders.",
+            description: "You will receive Medication Cares.",
             variant: "default",
           });
         } else {
           toast({
             title: "Notifications disabled",
             description:
-              "Please enable notifications to receive medication reminders.",
+              "Please enable notifications to receive Medication Cares.",
             variant: "destructive",
           });
         }

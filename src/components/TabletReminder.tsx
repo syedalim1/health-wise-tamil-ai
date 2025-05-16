@@ -338,7 +338,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
       toast.success("Notification permissions granted!");
     } else {
       toast.error(
-        "Please enable notifications in your browser settings to receive medication reminders."
+        "Please enable notifications in your browser settings to receive Medication Cares."
       );
     }
   };
@@ -497,7 +497,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
     if (deleted) {
       // Remove from state
       setMedications(medications.filter((med) => med.id !== id));
-      toast.success("Medication reminder removed");
+      toast.success("Medication Care removed");
       if (activeMedication && activeMedication.id === id) {
         setIsViewDetailsOpen(false);
         setActiveMedication(null);
@@ -731,7 +731,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
           <div className="flex items-center">
             <Bell className="h-5 w-5 text-amber-500 mr-2" />
             <p className="text-amber-800">
-              Enable notifications to receive medication reminders via Firebase
+              Enable notifications to receive Medication Cares via Firebase
               Cloud Messaging
             </p>
           </div>
@@ -1041,14 +1041,9 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      
-                     
-                    </div>
+                    <div></div>
 
                     <div>
-                    
-
                       {newMedication.customTime && (
                         <div className="grid grid-cols-2 gap-2 mt-2">
                           <Select
@@ -1098,8 +1093,6 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
                   </div>
                 )}
               </div>
-
-              
             </div>
           </CardContent>
           <CardFooter className="flex justify-end space-x-2 border-t border-health-primary/10 pt-4">

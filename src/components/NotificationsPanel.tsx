@@ -57,7 +57,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
     const demoNotifications: Notification[] = [
       {
         id: "1",
-        title: "Medication Reminder",
+        title: "Medication Care",
         message: "It's time to take your blood pressure medication",
         type: "reminder",
         isRead: false,
@@ -198,7 +198,7 @@ const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
                 <Bell className="h-10 w-10 text-gray-300 mb-2" />
                 <p className="text-gray-500">No notifications</p>
                 <p className="text-sm text-gray-400">
-                  You'll be notified about medication reminders and updates here
+                  You'll be notified about Medication Cares and updates here
                 </p>
               </div>
             ) : (

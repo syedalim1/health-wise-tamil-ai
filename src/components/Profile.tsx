@@ -307,7 +307,7 @@ const Profile: React.FC<ProfileProps> = ({ language }) => {
                   <div>
                     <h3 className="font-medium">Notifications</h3>
                     <p className="text-sm text-gray-500">
-                      Receive medication reminders
+                      Receive Medication Cares
                     </p>
                   </div>
                   <div className="flex h-5 items-center">

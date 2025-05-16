@@ -1,6 +1,6 @@
 # Firebase Cloud Messaging Setup for HealthWise Tamil AI
 
-This document provides instructions for setting up Firebase Cloud Messaging (FCM) for the HealthWise Tamil AI application to enable medication reminders.
+This document provides instructions for setting up Firebase Cloud Messaging (FCM) for the HealthWise Tamil AI application to enable Medication Cares.
 
 ## Prerequisites
 
@@ -78,7 +78,7 @@ To test your FCM setup:
 
 1. Run the application
 2. Enable notifications when prompted
-3. Add a medication reminder
+3. Add a Medication Care
 4. When the reminder time comes, you should receive a notification both in the browser and as a Firebase Cloud Message
 
 ## Troubleshooting

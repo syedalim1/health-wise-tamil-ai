@@ -44,7 +44,7 @@ self.addEventListener("push", (event) => {
     console.error("Error parsing push data:", e);
   }
 
-  const title = notificationData.notification?.title || "Medication Reminder";
+  const title = notificationData.notification?.title || "Medication Care";
   const options = {
     body:
       notificationData.notification?.body ||
@@ -61,8 +61,7 @@ self.addEventListener("push", (event) => {
 messaging.onBackgroundMessage(function (payload) {
   console.log("[Service Worker] Received background message:", payload);
 
-  const notificationTitle =
-    payload.notification?.title || "Medication Reminder";
+  const notificationTitle = payload.notification?.title || "Medication Care";
   const notificationOptions = {
     body: payload.notification?.body || "It's time to take your medication",
     icon: "/favicon.ico",

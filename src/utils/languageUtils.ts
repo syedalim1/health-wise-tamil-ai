@@ -27,7 +27,7 @@ const strings = {
     dosage: "Dosage",
     timeOfDay: "Time of Day",
     noMedications: "No medications",
-    noMedicationsDesc: "Click here to add medication reminders",
+    noMedicationsDesc: "Click here to add Medication Cares",
 
     // Stock Tracker specific strings
     stockLeft: "Stock Left",
