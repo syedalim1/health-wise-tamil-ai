@@ -13,7 +13,6 @@ import Register from "./pages/Register";
 import ProtectedRoute from "./components/ProtectedRoute";
 import TabletReminder from "./components/TabletReminder";
 import MeditationTracker from "./components/MeditationTracker";
-import StockTracker from "./components/StockTracker";
 import ChatAssistant from "./components/ChatAssistant";
 import Profile from "./components/Profile";
 import Settings from "./components/Settings";
@@ -91,14 +90,7 @@ const AppContent = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/stock"
-          element={
-            <ProtectedRoute>
-              <StockTracker language={currentLanguage} />
-            </ProtectedRoute>
-          }
-        />
+      
         <Route
           path="/chat"
           element={

@@ -111,17 +111,6 @@ const Navbar: React.FC<NavbarProps> = ({
               <span>{strings.meditation}</span>
             </button>
 
-            <button
-              onClick={() => handleNavigation("stock", "/stock")}
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                currentTab === "stock"
-                  ? "bg-health-light text-health-primary"
-                  : "hover:bg-gray-100"
-              }`}
-            >
-              <Bell className="h-4 w-4" />
-              <span>{strings.stockTracker}</span>
-            </button>
 
             <button
               onClick={() => handleNavigation("chat", "/chat")}

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import TabletReminder from "@/components/TabletReminder";
-import StockTracker from "@/components/StockTracker";
 import ChatAssistant from "@/components/ChatAssistant";
 import MedicationCalendar from "@/components/MedicationCalendar";
 import { Language } from "@/utils/languageUtils";
@@ -85,8 +84,7 @@ const Index = () => {
           <MeditationTracker language={currentLanguage} />
         )}
 
-        {activeTab === "stock" && <StockTracker language={currentLanguage} />}
-
+      
         {activeTab === "chat" && <ChatAssistant language={currentLanguage} />}
       </div>
     </div>
