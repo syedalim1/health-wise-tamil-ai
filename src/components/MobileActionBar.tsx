@@ -186,7 +186,7 @@ const MobileActionBar: React.FC<MobileActionBarProps> = ({
               }`}
               onClick={() => handleQuickAction("profile")}
             >
-              <MessageCircle
+              <User
                 className={`h-5 w-5 ${
                   activeTab === "profile" ? "stroke-2" : ""
                 }`}
