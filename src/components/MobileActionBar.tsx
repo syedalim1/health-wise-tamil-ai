@@ -58,11 +58,11 @@ const MobileActionBar: React.FC<MobileActionBarProps> = ({
           duration: 2000,
         });
         break;
-      
+
       case "chat":
         navigate("/chat");
         break;
-     
+
       default:
         break;
     }
@@ -149,10 +149,6 @@ const MobileActionBar: React.FC<MobileActionBarProps> = ({
             </Button>
           </motion.div>
 
-          
-
-       
-
           {/* Chat Button */}
           <motion.div
             variants={tabVariants}
@@ -172,6 +168,30 @@ const MobileActionBar: React.FC<MobileActionBarProps> = ({
                 className={`h-5 w-5 ${activeTab === "chat" ? "stroke-2" : ""}`}
               />
               <span className="text-xs mt-1 font-medium">Chat</span>
+            </Button>
+          </motion.div>
+
+          {/* profile Button */}
+          <motion.div
+            variants={tabVariants}
+            animate={activeTab === "profile" ? "active" : "inactive"}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`flex flex-col items-center rounded-lg p-1 ${
+                activeTab === "profile"
+                  ? "text-cyan-600 bg-cyan-50"
+                  : "text-gray-600 hover:text-cyan-600"
+              }`}
+              onClick={() => handleQuickAction("profile")}
+            >
+              <MessageCircle
+                className={`h-5 w-5 ${
+                  activeTab === "profile" ? "stroke-2" : ""
+                }`}
+              />
+              <span className="text-xs mt-1 font-medium">Profile</span>
             </Button>
           </motion.div>
         </div>
