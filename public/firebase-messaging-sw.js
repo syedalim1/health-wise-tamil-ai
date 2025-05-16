@@ -290,6 +290,52 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("message", (event) => {
   console.log("[FCM Service Worker] Message received:", event.data);
 
+  // Handle browser close notification
+  if (event.data.type === "BROWSER_CLOSING") {
+    console.log("[FCM Service Worker] Browser closing, sending notification");
+
+    // Create a notification for browser close
+    const notificationOptions = {
+      title: "Browser Session Ended",
+      body: "Your health monitoring session has ended",
+      icon: "/favicon.ico",
+      data: {
+        userId: event.data.userId,
+        deviceToken: event.data.deviceToken,
+        type: "BROWSER_CLOSED",
+      },
+      tag: `browser-closed-${Date.now()}`,
+      requireInteraction: true,
+    };
+
+    // Store the notification data for redundancy
+    storeNotificationInIndexedDB(notificationOptions);
+
+    // Show the notification
+    self.registration.showNotification(
+      notificationOptions.title,
+      notificationOptions
+    );
+
+    // If we have access to FCM token, send a backend request
+    if (event.data.deviceToken) {
+      fetch("/api/send-mobile-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: event.data.deviceToken,
+          userId: event.data.userId,
+          title: "Browser Session Ended",
+          body: "Your health monitoring session has ended",
+          data: { type: "BROWSER_CLOSED" },
+        }),
+        keepalive: true,
+      }).catch((err) =>
+        console.error("Error sending close notification:", err)
+      );
+    }
+  }
+
   if (event.data.type === "checkNotifications") {
     checkStoredNotifications();
   }
@@ -313,6 +359,36 @@ self.addEventListener("beforeunload", () => {
   }
 });
 
-window.addEventListener("beforeunload", function (e) {
-  // Send a message to your server or trigger FCM here
-});
+// Handle browser closing in the main window context
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", function (e) {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      // Use sendBeacon for reliability during page unload
+      const serviceWorker = navigator.serviceWorker.controller;
+
+      // Get the FCM token from localStorage if available
+      const fcmToken = localStorage.getItem("fcmToken");
+      const userId = localStorage.getItem("userId");
+
+      // Send closing message to service worker
+      serviceWorker.postMessage({
+        type: "BROWSER_CLOSING",
+        userId: userId,
+        deviceToken: fcmToken,
+        timestamp: Date.now(),
+      });
+
+      // Also send to server via beacon if API endpoint exists
+      if (fcmToken) {
+        navigator.sendBeacon(
+          "/api/notify-browser-close",
+          JSON.stringify({
+            userId: userId,
+            fcmToken: fcmToken,
+            timestamp: Date.now(),
+          })
+        );
+      }
+    }
+  });
+}
