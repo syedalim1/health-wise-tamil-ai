@@ -18,7 +18,6 @@ const languageNames: Record<Language, string> = {
   english: 'English',
   tamil: 'தமிழ்',
   hindi: 'हिंदी',
-  tanglish: 'Tanglish',
 };
 
 const LanguageSelector: React.FC<LanguageSelectorProps> = ({

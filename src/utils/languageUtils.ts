@@ -1,148 +1,286 @@
 // author Syed SEO
 // remove unwanted seo
-export type Language = "english" | "tamil" | "hindi" | "tanglish";
+export type Language = "english" | "tamil" | "hindi";
 
-export interface LanguageStrings {
-  appTitle: string;
+const strings = {
+  english: {
+    appTitle: "Tablet Remember",
+    tabletReminder: "Tablet Reminder",
+    tabletReminderDesc: "Manage your medication schedule",
+    calendar: "Calendar",
+    calendarDesc: "View your medication calendar",
+    meditation: "Meditation",
+    meditationDesc: "Track your meditation sessions",
+    stockTracker: "Stock Tracker",
+    stockTrackerDesc: "Monitor your medication stock",
+    chatAssistant: "Chat Assistant",
+    chatAssistantDesc: "Get help from our AI assistant",
+    welcomeBack: "Welcome back",
+    dashboardDesc: "Here's your health management dashboard",
+    lastLogin: "Last login",
+    morning: "Morning",
+    afternoon: "Afternoon",
+    evening: "Evening",
+    night: "Night",
+    addMedication: "Add Medication",
+    medicationName: "Medication Name",
+    dosage: "Dosage",
+    timeOfDay: "Time of Day",
+    noMedications: "No medications",
+    noMedicationsDesc: "Click here to add medication reminders",
 
-  stockTracker: string;
-  chatAssistant: string;
-  tabletReminder: string;
-  morning: string;
-  afternoon: string;
-  evening: string;
-  night: string;
-  addMedication: string;
-  medicationName: string;
-  dosage: string;
-  schedule: string;
-  save: string;
-  cancel: string;
-  stockLeft: string;
-  refillNeeded: string;
-  refillAlert: string;
-  chatPlaceholder: string;
-  send: string;
-  emergencyAlert: string;
-  emergencyMessage: string;
-}
+    // Stock Tracker specific strings
+    stockLeft: "Stock Left",
+    save: "Save",
+    refillNeeded: "Refill Needed",
+    refillAlert: "Low Stock Alert",
+    search: "Search medications",
+    filterByCategory: "Filter by category",
+    addNewMedication: "Add New Medication",
+    editMedication: "Edit Medication",
+    deleteMedication: "Delete Medication",
+    confirmDelete: "Are you sure you want to delete this medication?",
+    lowStockThreshold: "Low Stock Threshold",
+    medicationCategory: "Medication Category",
+    notes: "Notes",
+    cancel: "Cancel",
+    update: "Update",
+    lastUpdated: "Last Updated",
+    itemsLowStock: "items below threshold",
+    itemLowStock: "item below threshold",
+    quickAdd: "Quick Add",
+    quickRemove: "Quick Remove",
 
-// The base English strings
-const englishStrings: LanguageStrings = {
-  appTitle: "Smart Health Companion",
-  tabletReminder: "Medication Reminders",
-  stockTracker: "Stock Tracker",
-  chatAssistant: "Health Assistant",
-  morning: "Morning",
-  afternoon: "Afternoon",
-  evening: "Evening",
-  night: "Night",
-  addMedication: "Add Medication",
-  medicationName: "Medication Name",
-  dosage: "Dosage",
-  schedule: "Schedule",
-  save: "Save",
-  cancel: "Cancel",
-  stockLeft: "Tablets Left",
-  refillNeeded: "Refill Needed",
-  refillAlert: "Only {count} tablets left. Time to refill your prescription.",
-  chatPlaceholder: "Ask about your health concerns...",
-  send: "Send",
-  emergencyAlert: "Emergency Alert",
-  emergencyMessage:
-    "This might be an emergency. Please call 108 or visit the nearest hospital.",
+    // Chat Assistant specific strings
+    emergencyAlert: "Emergency Alert",
+    emergencyMessage:
+      "This might be an emergency. Please call 108 or visit the nearest hospital.",
+    chatPlaceholder: "Type your health question here...",
+    send: "Send",
+    chatCapabilities: "Chatbot Capabilities",
+    askSymptom: "Ask about symptoms",
+    askMedication: "Ask about medications",
+    emergencyDetection: "Emergency symptom detection",
+    multilingualSupport: "Multilingual support",
+
+    // Meditation specific strings
+    currentSession: "Current Session",
+    breatheDeep: "Breathe deeply and stay present",
+    recentSessions: "Recent Sessions",
+    noMeditationSessions: "No meditation sessions recorded yet",
+    sessionTooShort: "Session too short to save (minimum 30 seconds)",
+    saveMeditationSession: "Save Meditation Session",
+    meditationType: "Meditation Type",
+    sessionDuration: "Session duration",
+    viewAllSessions: "View all {count} sessions",
+    meditationSavedSuccess: "Meditation session saved successfully",
+    startMeditation: "Start Meditation",
+    pauseMeditation: "Pause Meditation",
+    resumeMeditation: "Resume Meditation",
+    totalSessions: "Total Sessions",
+    totalTime: "Total Time",
+    averageDuration: "Average Duration",
+    longestSession: "Longest Session",
+    currentStreak: "Current Streak",
+    days: "days",
+    breatheIn: "Breathe In",
+    breatheOut: "Breathe Out",
+    sessionsTab: "Sessions",
+    statsTab: "Statistics",
+    meditationNotes: "Notes (optional)",
+    meditationNotesPlaceholder: "How did you feel? What did you notice?",
+    minutes: "minutes",
+    seconds: "seconds",
+  },
+  tamil: {
+    appTitle: "Tablet Remember",
+    tabletReminder: "மாத்திரை நினைவூட்டல்",
+    tabletReminderDesc: "உங்கள் மருந்து அட்டவணையை நிர்வகிக்கவும்",
+    calendar: "நாட்காட்டி",
+    calendarDesc: "உங்கள் மருந்து நாட்காட்டியைப் பார்க்கவும்",
+    meditation: "தியானம்",
+    meditationDesc: "உங்கள் தியான அமர்வுகளைக் கண்காணிக்கவும்",
+    stockTracker: "இருப்பு கண்காணிப்பு",
+    stockTrackerDesc: "உங்கள் மருந்து இருப்பைக் கண்காணிக்கவும்",
+    chatAssistant: "அரட்டை உதவியாளர்",
+    chatAssistantDesc: "எங்கள் AI உதவியாளரிடமிருந்து உதவி பெறுங்கள்",
+    welcomeBack: "மீண்டும் வரவேற்கிறோம்",
+    dashboardDesc: "இதோ உங்கள் சுகாதார மேலாண்மை டாஷ்போர்டு",
+    lastLogin: "கடைசி உள்நுழைவு",
+    morning: "காலை",
+    afternoon: "மதியம்",
+    evening: "மாலை",
+    night: "இரவு",
+    addMedication: "மருந்து சேர்க்க",
+    medicationName: "மருந்தின் பெயர்",
+    dosage: "அளவு",
+    timeOfDay: "நாளின் நேரம்",
+    noMedications: "மருந்துகள் இல்லை",
+    noMedicationsDesc:
+      "மருந்து நினைவூட்டல்களைச் சேர்க்க இங்கே கிளிக் செய்யவும்",
+
+    // Stock Tracker specific strings
+    stockLeft: "இருப்பு மீதம்",
+    save: "சேமி",
+    refillNeeded: "நிரப்ப வேண்டும்",
+    refillAlert: "குறைந்த இருப்பு எச்சரிக்கை",
+    search: "மருந்துகளைத் தேடுங்கள்",
+    filterByCategory: "வகையின்படி வடிகட்டவும்",
+    addNewMedication: "புதிய மருந்தைச் சேர்க்கவும்",
+    editMedication: "மருந்தைத் திருத்தவும்",
+    deleteMedication: "மருந்தை நீக்கு",
+    confirmDelete: "இந்த மருந்தை நீக்க விரும்புகிறீர்களா?",
+    lowStockThreshold: "குறைந்த இருப்பு எல்லை",
+    medicationCategory: "மருந்து வகை",
+    notes: "குறிப்புகள்",
+    cancel: "ரத்து செய்",
+    update: "புதுப்பிக்கவும்",
+    lastUpdated: "கடைசியாக புதுப்பிக்கப்பட்டது",
+    itemsLowStock: "பொருட்கள் எல்லைக்குக் கீழே",
+    itemLowStock: "பொருள் எல்லைக்குக் கீழே",
+    quickAdd: "விரைவாக சேர்க்க",
+    quickRemove: "விரைவாக அகற்ற",
+
+    // Chat Assistant specific strings
+    emergencyAlert: "அவசர எச்சரிக்கை",
+    emergencyMessage:
+      "இது ஒரு அவசரநிலையாக இருக்கலாம். தயவுசெய்து 108 ஐ அழைக்கவும் அல்லது அருகிலுள்ள மருத்துவமனைக்குச் செல்லவும்.",
+    chatPlaceholder: "உங்கள் சுகாதார கேள்வியை இங்கே தட்டச்சு செய்யவும்...",
+    send: "அனுப்பு",
+    chatCapabilities: "அரட்டை உதவியாளர் திறன்கள்",
+    askSymptom: "அறிகுறிகளைப் பற்றி கேளுங்கள்",
+    askMedication: "மருந்துகளைப் பற்றி கேளுங்கள்",
+    emergencyDetection: "அவசர அறிகுறி கண்டறிதல்",
+    multilingualSupport: "பல மொழி ஆதரவு",
+
+    // Meditation specific strings
+    currentSession: "தற்போதைய அமர்வு",
+    breatheDeep: "ஆழ்ந்த மூச்சு எடுத்து தற்போது இருங்கள்",
+    recentSessions: "சமீபத்திய அமர்வுகள்",
+    noMeditationSessions:
+      "இதுவரை தியான அமர்வுகள் எதுவும் பதிவு செய்யப்படவில்லை",
+    sessionTooShort:
+      "அமர்வு சேமிக்க மிகவும் குறுகியது (குறைந்தபட்சம் 30 நொடிகள்)",
+    saveMeditationSession: "தியான அமர்வைச் சேமிக்கவும்",
+    meditationType: "தியான வகை",
+    sessionDuration: "அமர்வு காலம்",
+    viewAllSessions: "அனைத்து {count} அமர்வுகளையும் காண்க",
+    meditationSavedSuccess: "தியான அமர்வு வெற்றிகரமாக சேமிக்கப்பட்டது",
+    startMeditation: "தியானத்தைத் தொடங்குங்கள்",
+    pauseMeditation: "தியானத்தை இடைநிறுத்து",
+    resumeMeditation: "தியானத்தை தொடரவும்",
+    totalSessions: "மொத்த அமர்வுகள்",
+    totalTime: "மொத்த நேரம்",
+    averageDuration: "சராசரி காலம்",
+    longestSession: "நீண்ட அமர்வு",
+    currentStreak: "தற்போதைய வரிசை",
+    days: "நாட்கள்",
+    breatheIn: "மூச்சு உள்ளே",
+    breatheOut: "மூச்சு வெளியே",
+    sessionsTab: "அமர்வுகள்",
+    statsTab: "புள்ளிவிவரங்கள்",
+    meditationNotes: "குறிப்புகள் (விருப்பமானது)",
+    meditationNotesPlaceholder:
+      "நீங்கள் எப்படி உணர்ந்தீர்கள்? நீங்கள் என்ன கவனித்தீர்கள்?",
+    minutes: "நிமிடங்கள்",
+    seconds: "நொடிகள்",
+  },
+  hindi: {
+    appTitle: "Tablet Remember",
+    tabletReminder: "टैबलेट रिमाइंडर",
+    tabletReminderDesc: "अपनी दवा का शेड्यूल प्रबंधित करें",
+    calendar: "कैलेंडर",
+    calendarDesc: "अपना दवा कैलेंडर देखें",
+    meditation: "ध्यान",
+    meditationDesc: "अपने ध्यान सत्रों को ट्रैक करें",
+    stockTracker: "स्टॉक ट्रैकर",
+    stockTrackerDesc: "अपनी दवा के स्टॉक की निगरानी करें",
+    chatAssistant: "चैट सहायक",
+    chatAssistantDesc: "हमारे AI सहायक से मदद लें",
+    welcomeBack: "वापसी पर स्वागत है",
+    dashboardDesc: "यहाँ आपका स्वास्थ्य प्रबंधन डैशबोर्ड है",
+    lastLogin: "अंतिम लॉगिन",
+    morning: "सुबह",
+    afternoon: "दोपहर",
+    evening: "शाम",
+    night: "रात",
+    addMedication: "दवा जोड़ें",
+    medicationName: "दवा का नाम",
+    dosage: "खुराक",
+    timeOfDay: "दिन का समय",
+    noMedications: "कोई दवाएं नहीं",
+    noMedicationsDesc: "दवा रिमाइंडर जोड़ने के लिए यहां क्लिक करें",
+
+    // Stock Tracker specific strings
+    stockLeft: "शेष स्टॉक",
+    save: "सेव करें",
+    refillNeeded: "रिफिल आवश्यक",
+    refillAlert: "कम स्टॉक अलर्ट",
+    search: "दवाओं को खोजें",
+    filterByCategory: "श्रेणी के अनुसार फ़िल्टर करें",
+    addNewMedication: "नई दवा जोड़ें",
+    editMedication: "दवा संपादित करें",
+    deleteMedication: "दवा हटाएं",
+    confirmDelete: "क्या आप वाकई इस दवा को हटाना चाहते हैं?",
+    lowStockThreshold: "कम स्टॉक सीमा",
+    medicationCategory: "दवा श्रेणी",
+    notes: "नोट्स",
+    cancel: "रद्द करें",
+    update: "अपडेट करें",
+    lastUpdated: "आखिरी अपडेट",
+    itemsLowStock: "आइटम सीमा से नीचे",
+    itemLowStock: "आइटम सीमा से नीचे",
+    quickAdd: "त्वरित जोड़ें",
+    quickRemove: "त्वरित हटाएं",
+
+    // Chat Assistant specific strings
+    emergencyAlert: "आपातकालीन अलर्ट",
+    emergencyMessage:
+      "यह एक आपात स्थिति हो सकती है। कृपया 108 पर कॉल करें या निकटतम अस्पताल जाएं।",
+    chatPlaceholder: "अपना स्वास्थ्य प्रश्न यहां टाइप करें...",
+    send: "भेजें",
+    chatCapabilities: "चैटबॉट क्षमताएँ",
+    askSymptom: "लक्षणों के बारे में पूछें",
+    askMedication: "दवाओं के बारे में पूछें",
+    emergencyDetection: "आपातकालीन लक्षण पहचान",
+    multilingualSupport: "बहुभाषी समर्थन",
+
+    // Meditation specific strings
+    currentSession: "वर्तमान सत्र",
+    breatheDeep: "गहरी सांस लें और वर्तमान में रहें",
+    recentSessions: "हाल के सत्र",
+    noMeditationSessions: "अभी तक कोई ध्यान सत्र दर्ज नहीं किया गया",
+    sessionTooShort: "सत्र सहेजने के लिए बहुत छोटा है (न्यूनतम 30 सेकंड)",
+    saveMeditationSession: "ध्यान सत्र सहेजें",
+    meditationType: "ध्यान प्रकार",
+    sessionDuration: "सत्र अवधि",
+    viewAllSessions: "सभी {count} सत्र देखें",
+    meditationSavedSuccess: "ध्यान सत्र सफलतापूर्वक सहेजा गया",
+    startMeditation: "ध्यान शुरू करें",
+    pauseMeditation: "ध्यान रोकें",
+    resumeMeditation: "ध्यान फिर से शुरू करें",
+    totalSessions: "कुल सत्र",
+    totalTime: "कुल समय",
+    averageDuration: "औसत अवधि",
+    longestSession: "सबसे लंबा सत्र",
+    currentStreak: "वर्तमान स्ट्रीक",
+    days: "दिन",
+    breatheIn: "अंदर सांस लें",
+    breatheOut: "बाहर सांस छोड़ें",
+    sessionsTab: "सत्र",
+    statsTab: "आंकड़े",
+    meditationNotes: "नोट्स (वैकल्पिक)",
+    meditationNotesPlaceholder: "आपको कैसा महसूस हुआ? आपने क्या देखा?",
+    minutes: "मिनट",
+    seconds: "सेकंड",
+  },
 };
 
-// Tamil translations
-const tamilStrings: LanguageStrings = {
-  stockTracker: "ஸ்டாக் ட்ராக்கர்",
-  chatAssistant: "ஆரோக்கிய உதவியாளர்",
-  appTitle: "ஸ்மார்ட் ஹெல்த் கம்பானியன்",
-  tabletReminder: "மருந்து நினைவூட்டல்கள்",
-  morning: "காலை",
-  afternoon: "மதியம்",
-  evening: "மாலை",
-  night: "இரவு",
-  addMedication: "மருந்து சேர்க்க",
-  medicationName: "மருந்து பெயர்",
-  dosage: "அளவு",
-  schedule: "அட்டவணை",
-  save: "சேமி",
-  cancel: "ரத்து செய்",
-  stockLeft: "மிஞ்சியுள்ள மாத்திரைகள்",
-  refillNeeded: "நிரப்ப வேண்டும்",
-  refillAlert:
-    "வெறும் {count} மாத்திரைகள் மட்டுமே உள்ளன. உங்கள் மருந்து சீட்டை நிரப்ப நேரம்.",
-  chatPlaceholder: "உங்கள் ஆரோக்கிய கவலைகள் பற்றி கேளுங்கள்...",
-  send: "அனுப்பு",
-  emergencyAlert: "அவசர எச்சரிக்கை",
-  emergencyMessage:
-    "இது ஒரு அவசரநிலையாக இருக்கலாம். தயவுசெய்து 108ஐ அழைக்கவும் அல்லது அருகிலுள்ள மருத்துவமனைக்குச் செல்லவும்.",
+export const getLanguageStrings = (language: Language) => {
+  return strings[language];
 };
 
-// Hindi translations
-const hindiStrings: LanguageStrings = {
-  stockTracker: "स्टॉक ट्रैकर",
-  chatAssistant: "स्वास्थ्य सहायक",
-  appTitle: "स्मार्ट हेल्थ कम्पैनियन",
-  tabletReminder: "दवा अनुस्मारक",
-  morning: "सुबह",
-  afternoon: "दोपहर",
-  evening: "शाम",
-  night: "रात",
-  addMedication: "दवा जोड़ें",
-  medicationName: "दवा का नाम",
-  dosage: "खुराक",
-  schedule: "अनुसूची",
-  save: "सहेजें",
-  cancel: "रद्द करें",
-  stockLeft: "बची हुई गोलियां",
-  refillNeeded: "रिफिल की आवश्यकता है",
-  refillAlert: "केवल {count} गोलियां बची हैं। अपना नुस्खा रिफिल करने का समय।",
-  chatPlaceholder: "अपने स्वास्थ्य संबंधी चिंताओं के बारे में पूछें...",
-  send: "भेजें",
-  emergencyAlert: "आपातकालीन अलर्ट",
-  emergencyMessage:
-    "यह एक आपातकालीन स्थिति हो सकती है। कृपया 108 पर कॉल करें या नजदीकी अस्पताल जाएँ।",
-};
-
-// Tanglish translations (Tamil written with English characters)
-const tanglishStrings: LanguageStrings = {
-  stockTracker: "Stock Tracker",
-  chatAssistant: "Arokkiya Uthaviyalar",
-  appTitle: "Smart Health Companion",
-  tabletReminder: "Marundu Ninaivutalgal",
-  morning: "Kaalai",
-  afternoon: "Madhiyam",
-  evening: "Maalai",
-  night: "Iravu",
-  addMedication: "Marundu Serka",
-  medicationName: "Marundu Peyar",
-  dosage: "Alavu",
-  schedule: "Adavanai",
-  save: "Save",
-  cancel: "Rathu Sei",
-  stockLeft: "Minchiyulla Mathiraigal",
-  refillNeeded: "Nirappu Thevai",
-  refillAlert:
-    "Verum {count} mathiraigal mattume ullana. Ungal marundu seettai nirappu neram.",
-  chatPlaceholder: "Ungal arokkiya kavalaikal patri kelungal...",
-  send: "Anuppu",
-  emergencyAlert: "Avasara Echcharikai",
-  emergencyMessage:
-    "Ithu oru avasara nilai irukkalam. Thayavu seithu 108 azhaikavum alladu arugil ulla maruthuvamanaikku sellvum.",
-};
-
-const allLanguages: Record<Language, LanguageStrings> = {
-  english: englishStrings,
-  tamil: tamilStrings,
-  hindi: hindiStrings,
-  tanglish: tanglishStrings,
-};
-
-export const getLanguageStrings = (language: Language): LanguageStrings => {
-  return allLanguages[language] || englishStrings;
-};
+export type LanguageStrings = typeof strings.english;
 
 export const formatString = (
   template: string,

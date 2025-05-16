@@ -4,11 +4,11 @@ import TabletReminder from "@/components/TabletReminder";
 import StockTracker from "@/components/StockTracker";
 import ChatAssistant from "@/components/ChatAssistant";
 import MedicationCalendar from "@/components/MedicationCalendar";
-import MeditationTracker from "@/components/MeditationTracker";
-import AnimatedBackground from "@/components/AnimatedBackground";
 import { Language } from "@/utils/languageUtils";
 import { askNotificationPermission } from "@/utils/notificationUtils";
 import { toast } from "@/components/ui/use-toast";
+import AnimatedBackground from "@/components/AnimatedBackground";
+import MeditationTracker from "@/components/MeditationTracker";
 
 const Index = () => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>("english");

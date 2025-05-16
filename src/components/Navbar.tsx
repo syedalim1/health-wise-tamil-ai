@@ -6,9 +6,23 @@ import {
   PillIcon,
   Calendar,
   Circle,
+  UserCircle,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import LanguageSelector from "./LanguageSelector";
 import { Language, getLanguageStrings } from "@/utils/languageUtils";
+import { useNavigate, useLocation } from "react-router-dom";
+import { toast as showToast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import NotificationsPanel from "./NotificationsPanel";
 
 interface NavbarProps {
   currentLanguage: Language;
@@ -24,12 +38,41 @@ const Navbar: React.FC<NavbarProps> = ({
   onTabChange,
 }) => {
   const strings = getLanguageStrings(currentLanguage);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+
+  // Determine active tab based on current route path
+  const currentPath = location.pathname;
+  const currentTab =
+    currentPath === "/"
+      ? "reminder"
+      : currentPath === "/meditation"
+      ? "meditation"
+      : currentPath === "/stock"
+      ? "stock"
+      : currentPath === "/chat"
+      ? "chat"
+      : currentPath === "/profile"
+      ? "profile"
+      : currentPath === "/settings"
+      ? "settings"
+      : "";
+
+  // Handle navigation and tab change
+  const handleNavigation = (tab: string, path: string) => {
+    onTabChange(tab);
+    navigate(path);
+  };
 
   return (
     <div className="bg-white shadow-md">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-2">
+          <div
+            className="flex items-center space-x-2 cursor-pointer"
+            onClick={() => handleNavigation("reminder", "/")}
+          >
             <PillIcon className="h-6 w-6 text-health-primary" />
             <span className="font-bold text-lg text-health-primary">
               {strings.appTitle}
@@ -45,9 +88,9 @@ const Navbar: React.FC<NavbarProps> = ({
 
           <div className="hidden md:flex items-center space-x-4">
             <button
-              onClick={() => onTabChange("reminder")}
+              onClick={() => handleNavigation("reminder", "/")}
               className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                activeTab === "reminder"
+                currentTab === "reminder"
                   ? "bg-health-light text-health-primary"
                   : "hover:bg-gray-100"
               }`}
@@ -57,33 +100,21 @@ const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => onTabChange("calendar")}
+              onClick={() => handleNavigation("meditation", "/meditation")}
               className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                activeTab === "calendar"
-                  ? "bg-health-light text-health-primary"
-                  : "hover:bg-gray-100"
-              }`}
-            >
-              <Calendar className="h-4 w-4" />
-              <span>Calendar</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange("meditation")}
-              className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                activeTab === "meditation"
+                currentTab === "meditation"
                   ? "bg-health-light text-health-primary"
                   : "hover:bg-gray-100"
               }`}
             >
               <Circle className="h-4 w-4" />
-              <span>Meditation</span>
+              <span>{strings.meditation}</span>
             </button>
 
             <button
-              onClick={() => onTabChange("stock")}
+              onClick={() => handleNavigation("stock", "/stock")}
               className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                activeTab === "stock"
+                currentTab === "stock"
                   ? "bg-health-light text-health-primary"
                   : "hover:bg-gray-100"
               }`}
@@ -93,9 +124,9 @@ const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <button
-              onClick={() => onTabChange("chat")}
+              onClick={() => handleNavigation("chat", "/chat")}
               className={`flex items-center space-x-1 px-3 py-2 rounded-md transition-colors ${
-                activeTab === "chat"
+                currentTab === "chat"
                   ? "bg-health-light text-health-primary"
                   : "hover:bg-gray-100"
               }`}
@@ -104,75 +135,71 @@ const Navbar: React.FC<NavbarProps> = ({
               <span>{strings.chatAssistant}</span>
             </button>
 
+            {currentUser && (
+              <div className="flex items-center space-x-1">
+                <NotificationsPanel language={currentLanguage} />
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full"
+                    >
+                      <UserCircle className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleNavigation("profile", "/profile")}
+                    >
+                      <UserCircle className="h-4 w-4 mr-2" />
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleNavigation("settings", "/settings")}
+                    >
+                      <SettingsIcon className="h-4 w-4 mr-2" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        localStorage.removeItem("currentUser");
+                        showToast.success("Logged out", {
+                          description: "You have been logged out successfully",
+                        });
+                        navigate("/login");
+                      }}
+                    >
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+
             <LanguageSelector
               currentLanguage={currentLanguage}
               onLanguageChange={onLanguageChange}
             />
+
+            {!currentUser && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigate("/login");
+                }}
+              >
+                Login
+              </Button>
+            )}
           </div>
         </div>
 
-        {/* Mobile tab navigation */}
-        <div className="md:hidden border-t border-gray-200">
-          <div className="flex justify-around">
-            <button
-              onClick={() => onTabChange("reminder")}
-              className={`flex flex-col items-center py-2 flex-1 ${
-                activeTab === "reminder"
-                  ? "text-health-primary"
-                  : "text-gray-500"
-              }`}
-            >
-              <Clock className="h-5 w-5" />
-              <span className="text-xs mt-1">
-                {strings.tabletReminder}
-              </span>{" "}
-            </button>
-
-            <button
-              onClick={() => onTabChange("calendar")}
-              className={`flex flex-col items-center py-2 flex-1 ${
-                activeTab === "calendar"
-                  ? "text-health-primary"
-                  : "text-gray-500"
-              }`}
-            >
-              <Calendar className="h-5 w-5" />
-              <span className="text-xs mt-1">Calendar</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange("meditation")}
-              className={`flex flex-col items-center py-2 flex-1 ${
-                activeTab === "meditation"
-                  ? "text-health-primary"
-                  : "text-gray-500"
-              }`}
-            >
-              <Circle className="h-5 w-5" />
-              <span className="text-xs mt-1">Meditation</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange("stock")}
-              className={`flex flex-col items-center py-2 flex-1 ${
-                activeTab === "stock" ? "text-health-primary" : "text-gray-500"
-              }`}
-            >
-              <Bell className="h-5 w-5" />
-              <span className="text-xs mt-1">{strings.stockTracker}</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange("chat")}
-              className={`flex flex-col items-center py-2 flex-1 ${
-                activeTab === "chat" ? "text-health-primary" : "text-gray-500"
-              }`}
-            >
-              <MessageCircle className="h-5 w-5" />
-              <span className="text-xs mt-1">{strings.chatAssistant}</span>
-            </button>
-          </div>
-        </div>
+       
       </div>
     </div>
   );
