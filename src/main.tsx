@@ -8,51 +8,115 @@ import {
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
-// Register our service worker for local notifications
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker
-    .register("/sw.js", {
+// Register and activate service workers immediately
+const registerServiceWorkers = async () => {
+  if (!("serviceWorker" in navigator)) {
+    console.log("Service workers are not supported.");
+    return;
+  }
+
+  try {
+    // Register main service worker for local notifications
+    const swRegistration = await navigator.serviceWorker.register("/sw.js", {
       scope: "/",
-    })
-    .then((registration) => {
-      console.log("Service worker registered:", registration);
-
-      // Check if we need to update the service worker
-      if (registration.waiting) {
-        registration.waiting.postMessage({ type: "SKIP_WAITING" });
-      }
-
-      // Check for notification data in IndexedDB on startup
-      if (registration.active) {
-        registration.active.postMessage({
-          type: "checkScheduledNotifications",
-        });
-      }
-    })
-    .catch((error) => {
-      console.error("Service worker registration failed:", error);
+      updateViaCache: "none", // Always check for SW updates
     });
 
-  // Register Firebase messaging service worker for push notifications when browser is closed
-  navigator.serviceWorker
-    .register("/firebase-messaging-sw.js", {
-      scope: "/firebase-cloud-messaging-push-scope",
-    })
-    .then((registration) => {
-      console.log(
-        "Firebase messaging service worker registered:",
-        registration
-      );
-    })
-    .catch((error) => {
-      console.error(
-        "Firebase messaging service worker registration failed:",
-        error
-      );
+    console.log("Service worker registered:", swRegistration);
+
+    // Force update if needed
+    if (swRegistration.waiting) {
+      swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+    }
+
+    // Update the service worker on every page load
+    swRegistration.update().catch((err) => {
+      console.warn("Service worker update failed:", err);
     });
-} else {
-  console.log("Service workers are not supported.");
-}
+
+    // Check for notification data in IndexedDB on startup
+    if (swRegistration.active) {
+      swRegistration.active.postMessage({
+        type: "checkScheduledNotifications",
+      });
+    }
+
+    // Register Firebase messaging service worker for push notifications when browser is closed
+    const fcmRegistration = await navigator.serviceWorker.register(
+      "/firebase-messaging-sw.js",
+      {
+        scope: "/firebase-cloud-messaging-push-scope",
+        updateViaCache: "none", // Always check for SW updates
+      }
+    );
+
+    console.log(
+      "Firebase messaging service worker registered:",
+      fcmRegistration
+    );
+
+    // Force update if needed
+    if (fcmRegistration.waiting) {
+      fcmRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+    }
+
+    // Update the FCM service worker
+    fcmRegistration.update().catch((err) => {
+      console.warn("FCM service worker update failed:", err);
+    });
+
+    // Check for stored notifications
+    if (fcmRegistration.active) {
+      fcmRegistration.active.postMessage({
+        type: "checkNotifications",
+      });
+    }
+
+    // Add event listeners to refresh service workers when app is focused/visible
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        swRegistration
+          .update()
+          .catch((err) =>
+            console.warn("SW update on visibility change failed:", err)
+          );
+        fcmRegistration
+          .update()
+          .catch((err) =>
+            console.warn("FCM update on visibility change failed:", err)
+          );
+      }
+    });
+
+    window.addEventListener("focus", () => {
+      swRegistration
+        .update()
+        .catch((err) => console.warn("SW update on focus failed:", err));
+      fcmRegistration
+        .update()
+        .catch((err) => console.warn("FCM update on focus failed:", err));
+    });
+
+    // Set up keeping the service workers alive
+    const keepAliveInterval = setInterval(() => {
+      try {
+        fetch("/keep-alive?t=" + Date.now()).catch(() => {});
+      } catch (e) {
+        // Ignore errors - this is just a keep-alive
+      }
+    }, 5 * 60 * 1000); // Every 5 minutes
+
+    // Clean up on page unload
+    window.addEventListener("beforeunload", () => {
+      clearInterval(keepAliveInterval);
+    });
+  } catch (error) {
+    console.error("Service worker registration failed:", error);
+  }
+};
+
+// Register service workers immediately
+registerServiceWorkers();
 
 // Request notification permission when the app loads
 const requestPermission = async () => {

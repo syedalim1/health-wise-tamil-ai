@@ -1,12 +1,27 @@
 // Service Worker for handling notifications
 self.addEventListener("install", (event) => {
   console.log("[Service Worker] Installing...");
-  self.skipWaiting();
+  // Force immediate installation to make it available to all pages right away
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
   console.log("[Service Worker] Activating...");
-  event.waitUntil(self.clients.claim());
+  // Claim control over all clients immediately
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      // Register for periodic sync if supported
+      "periodicSync" in self.registration
+        ? self.registration.periodicSync.register(
+            "notification-periodic-sync",
+            {
+              minInterval: 60 * 1000, // 1 minute in ms
+            }
+          )
+        : Promise.resolve(),
+    ])
+  );
 });
 
 // Listen for messages from the main thread
@@ -39,21 +54,39 @@ self.addEventListener("message", (event) => {
         )}`
       );
 
-      // Schedule a one-time sync event
-      if ("sync" in self.registration) {
-        self.registration.sync.register("notification-sync");
-      }
+      // Schedule background sync for reliability
+      Promise.all([
+        // Register for one-time sync
+        "sync" in self.registration
+          ? self.registration.sync.register("notification-sync")
+          : Promise.resolve(),
 
-      // Set an alarm for waking up the service worker
-      setTimeout(() => {
-        self.registration.showNotification(options.title, options).then(() => {
-          if (options.sound) {
-            // Store sound URL in notification data for later access
-            self._notificationSound = options.sound;
-          }
-        });
-      }, timeInMs);
+        // Fall back to setTimeout as a last resort
+        new Promise((resolve) => {
+          setTimeout(() => {
+            self.registration
+              .showNotification(options.title, options)
+              .then(() => {
+                if (options.sound) {
+                  // Store sound URL in notification data for later access
+                  self._notificationSound = options.sound;
+                }
+                resolve();
+              });
+          }, timeInMs);
+        }),
+      ]);
     }
+  }
+
+  // Add handling for checkScheduledNotifications message
+  if (event.data.type === "checkScheduledNotifications") {
+    checkScheduledNotifications();
+  }
+
+  // Handle SKIP_WAITING message
+  if (event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
   }
 });
 
@@ -96,40 +129,97 @@ self.addEventListener("sync", (event) => {
   }
 });
 
+// Periodic Sync API support (for consistent wake-ups)
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "notification-periodic-sync") {
+    event.waitUntil(checkScheduledNotifications());
+  }
+});
+
+// Periodically check for scheduled notifications (every minute)
+const NOTIFICATION_CHECK_INTERVAL = 60000; // 1 minute
+self._checkInterval = setInterval(() => {
+  checkScheduledNotifications();
+}, NOTIFICATION_CHECK_INTERVAL);
+
 // Check IndexedDB for scheduled notifications
 const checkScheduledNotifications = async () => {
   console.log("[Service Worker] Checking scheduled notifications");
 
-  const dbPromise = indexedDB.open("notifications-db", 1);
+  return new Promise((resolveMain, rejectMain) => {
+    const dbPromise = indexedDB.open("notifications-db", 1);
 
-  dbPromise.onsuccess = (event) => {
-    const db = event.target.result;
-    const tx = db.transaction("notifications", "readwrite");
-    const store = tx.objectStore("notifications");
-    const now = Date.now();
+    dbPromise.onsuccess = (event) => {
+      const db = event.target.result;
+      const tx = db.transaction("notifications", "readwrite");
+      const store = tx.objectStore("notifications");
+      const now = Date.now();
+      let pendingNotifications = 0;
+      let shownNotifications = 0;
 
-    store.openCursor().onsuccess = (event) => {
-      const cursor = event.target.result;
-      if (cursor) {
-        const notification = cursor.value;
+      const pendingPromises = [];
 
-        if (notification.scheduledTime <= now) {
-          // Show the notification if it's time
-          self.registration.showNotification(
-            notification.options.title,
-            notification.options
-          );
+      store.openCursor().onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          const notification = cursor.value;
+          pendingNotifications++;
 
-          // Remove this notification from the database
-          cursor.delete();
+          if (notification.scheduledTime <= now) {
+            // Show the notification if it's time
+            const notificationPromise = self.registration
+              .showNotification(
+                notification.options.title,
+                notification.options
+              )
+              .then(() => {
+                // Remove this notification from the database
+                cursor.delete();
+                shownNotifications++;
+                console.log(
+                  "[Service Worker] Showing and removing scheduled notification"
+                );
+              })
+              .catch((error) => {
+                console.error(
+                  "[Service Worker] Error showing notification:",
+                  error
+                );
+              });
+
+            pendingPromises.push(notificationPromise);
+          }
+          cursor.continue();
+        } else {
+          // Cursor is complete
           console.log(
-            "[Service Worker] Showing and removing scheduled notification"
+            `[Service Worker] Notification check complete. Found ${pendingNotifications} pending, showed ${shownNotifications}`
           );
+
+          // Resolve when all notifications are processed
+          Promise.all(pendingPromises)
+            .then(() => resolveMain())
+            .catch((err) => {
+              console.error(
+                "[Service Worker] Error processing notifications:",
+                err
+              );
+              resolveMain(); // Still resolve the main promise even if some notifications failed
+            });
         }
-        cursor.continue();
-      }
+      };
+
+      tx.oncomplete = () => {
+        // Close the database connection when transaction is complete
+        db.close();
+      };
     };
-  };
+
+    dbPromise.onerror = (error) => {
+      console.error("[Service Worker] Error checking notifications:", error);
+      rejectMain(error);
+    };
+  });
 };
 
 // Listen for push events
@@ -143,6 +233,18 @@ self.addEventListener("push", (event) => {
       const options = data.options || {
         body: "It's time for your medication",
         icon: "/favicon.ico",
+        requireInteraction: true, // Keep notification visible until user interacts
+        tag: `medication-reminder-${Date.now()}`,
+        actions: [
+          {
+            action: "confirm",
+            title: "✓ Taken",
+          },
+          {
+            action: "postpone",
+            title: "⏰ Remind Later",
+          },
+        ],
       };
 
       event.waitUntil(self.registration.showNotification(title, options));
@@ -208,4 +310,26 @@ self.addEventListener("notificationclick", (event) => {
       }
     })
   );
+});
+
+// Keep the service worker alive with an active fetch handler
+self.addEventListener("fetch", (event) => {
+  // We need to define a custom strategy to keep the service worker active
+  // This will also ensure the service worker stays registered
+  if (event.request.url.includes("keep-alive")) {
+    event.respondWith(
+      new Response("Service worker is alive", {
+        headers: { "Content-Type": "text/plain" },
+      })
+    );
+  }
+  // For other requests, use default browser handling
+});
+
+// Make sure indexedDB connections are properly closed when service worker is terminated
+self.addEventListener("beforeunload", () => {
+  // Clear the interval
+  if (self._checkInterval) {
+    clearInterval(self._checkInterval);
+  }
 });

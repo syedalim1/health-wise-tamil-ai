@@ -276,74 +276,185 @@ export const scheduleFCMNotification = async (
   medicationId?: string
 ) => {
   try {
-    // Get FCM token from local storage
     const fcmToken = localStorage.getItem("fcmToken");
-
     if (!fcmToken) {
-      console.log("No FCM token available for cloud notifications");
-      return false;
+      console.warn("No FCM token available, attempting to acquire one");
+      const hasSetup = await setupFirebaseMessaging();
+      if (!hasSetup || !localStorage.getItem("fcmToken")) {
+        console.error("Could not obtain FCM token for notifications");
+        return;
+      }
     }
 
-    // Try to use your backend API if available
-    try {
-      const response = await fetch("/api/schedule-medication", {
+    // Create payload for the FCM notification
+    const payload = {
+      notification: {
+        title: `${medicationName} Reminder`,
+        body: dosage
+          ? `Time to take ${medicationName} (${dosage})`
+          : `Time to take ${medicationName}`,
+      },
+      data: {
+        medicationId: medicationId || "",
+        medicationName,
+        dosage,
+        scheduledTime: scheduleDate.toISOString(),
+        timeDisplay,
+      },
+      // Add additional parameters to ensure notification is reliable
+      android: {
+        priority: "high",
+        notification: {
+          sticky: true,
+          default_vibrate_timings: true,
+          default_sound: true,
+          notification_priority: "PRIORITY_HIGH",
+          visibility: "PUBLIC",
+        },
+      },
+      apns: {
+        headers: {
+          "apns-priority": "10",
+        },
+        payload: {
+          aps: {
+            sound: "default",
+            badge: 1,
+            content_available: 1,
+          },
+        },
+      },
+      webpush: {
+        headers: {
+          TTL: "86400", // 24 hours in seconds
+          Urgency: "high",
+        },
+        notification: {
+          requireInteraction: true,
+          vibrate: [200, 100, 200],
+          actions: [
+            {
+              action: "confirm",
+              title: "✓ Taken",
+            },
+            {
+              action: "postpone",
+              title: "⏰ Remind Later",
+            },
+          ],
+        },
+        fcm_options: {
+          link: window.location.origin,
+        },
+      },
+      token: fcmToken,
+    };
+
+    // Send to the server
+    const response = await fetch(
+      "https://us-central1-asmi-project-notification.cloudfunctions.net/schedulePushNotification",
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           token: fcmToken,
-          scheduleTime: scheduleDate.toISOString(),
-          title: "Medication Reminder",
-          body: `${medicationName} - ${dosage}`,
-          data: { medicationId },
+          scheduleTime: scheduleDate.getTime(),
+          payload,
         }),
-      });
-
-      if (response.ok) {
-        console.log("Cloud notification scheduled successfully");
-        return true;
-      } else {
-        throw new Error("Failed to schedule cloud notification");
       }
-    } catch (apiError) {
-      console.warn(
-        "Could not schedule via API, using client-side fallback:",
-        apiError
-      );
+    );
 
-      // Store the scheduled notification in localStorage
-      // This isn't ideal but provides some redundancy
-      try {
-        const scheduledNotifications = JSON.parse(
-          localStorage.getItem("scheduledNotifications") || "[]"
-        );
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-        scheduledNotifications.push({
-          id: Date.now().toString(),
-          scheduleTime: scheduleDate.toISOString(),
-          title: "Medication Reminder",
-          body: `${medicationName} - ${dosage}`,
-          medicationId,
-        });
+    // Store a local backup of the scheduled notification in case FCM fails
+    storeLocalBackupNotification(scheduleDate.getTime(), {
+      title: `${medicationName} Reminder`,
+      body: dosage
+        ? `Time to take ${medicationName} (${dosage})`
+        : `Time to take ${medicationName}`,
+      data: {
+        medicationId,
+        medicationName,
+        dosage,
+        timeDisplay,
+      },
+    });
 
-        localStorage.setItem(
-          "scheduledNotifications",
-          JSON.stringify(scheduledNotifications)
-        );
+    console.log("FCM notification scheduled successfully for", scheduleDate);
+    return await response.json();
+  } catch (error) {
+    console.error("Error scheduling FCM notification:", error);
+    return null;
+  }
+};
 
-        console.log("Stored notification in localStorage for redundancy");
-        return true;
-      } catch (storageError) {
-        console.error(
-          "Failed to store notification in localStorage:",
-          storageError
-        );
-        return false;
-      }
+// Store a local backup of the FCM notification in case cloud messaging fails
+const storeLocalBackupNotification = (
+  scheduledTime: number,
+  options: NotificationOptions
+) => {
+  try {
+    // Get existing backups
+    const existingBackupsStr =
+      localStorage.getItem("notificationBackups") || "[]";
+    const existingBackups = JSON.parse(existingBackupsStr);
+
+    // Add the new backup
+    existingBackups.push({
+      scheduledTime,
+      options,
+      id: `backup-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`,
+    });
+
+    // Clean up old backups (keep only those from the last 7 days)
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const updatedBackups = existingBackups.filter(
+      (backup: any) => backup.scheduledTime > sevenDaysAgo
+    );
+
+    // Save back to localStorage
+    localStorage.setItem("notificationBackups", JSON.stringify(updatedBackups));
+
+    console.log(
+      "Stored local backup for notification at",
+      new Date(scheduledTime)
+    );
+  } catch (error) {
+    console.error("Error storing local notification backup:", error);
+  }
+};
+
+// Function to check for missed notifications in local storage
+export const checkMissedNotifications = () => {
+  try {
+    const backupsStr = localStorage.getItem("notificationBackups") || "[]";
+    const backups = JSON.parse(backupsStr);
+    const now = Date.now();
+    let missed = 0;
+
+    // Filter to get missed notifications (scheduled in the past but not shown)
+    const missedNotifications = backups.filter((backup: any) => {
+      return backup.scheduledTime <= now && !backup.shown;
+    });
+
+    // Show missed notifications
+    missedNotifications.forEach((backup: any) => {
+      showNotification(backup.options);
+      backup.shown = true;
+      missed++;
+    });
+
+    // Update storage with processed notifications
+    localStorage.setItem("notificationBackups", JSON.stringify(backups));
+
+    if (missed > 0) {
+      console.log(`Showed ${missed} missed notifications from local storage`);
     }
   } catch (error) {
-    console.error("Error scheduling cloud notification:", error);
-    return false;
+    console.error("Error checking for missed notifications:", error);
   }
 };

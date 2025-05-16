@@ -1,12 +1,12 @@
 // Log service worker initialization
 console.log("Firebase messaging service worker initialized");
 
-// Import and initialize the Firebase SDK
+// Import the latest Firebase scripts
 importScripts(
-  "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"
 );
 importScripts(
-  "https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"
 );
 
 // Your Firebase configuration
@@ -23,17 +23,40 @@ const firebaseConfig = {
 self.VAPID_KEY =
   "BL6WDWYOmUXReKuOauKDP4VMbPTM5WL1GcdNMUPZdgiwOwg1KVXRIJTITReuBQMsw63OUS2Bn8jyy0ygKSfeZE8";
 
-// Initialize Firebase
-console.log("Initializing Firebase in service worker");
+// Initialize Firebase in the service worker
 firebase.initializeApp(firebaseConfig);
 
-// Initialize messaging
+// Retrieve an instance of Firebase Messaging
 const messaging = firebase.messaging();
 console.log("Firebase messaging initialized in service worker");
 
+// Handle background messages
+messaging.onBackgroundMessage(function (payload) {
+  console.log(
+    "[firebase-messaging-sw.js] Received background message ",
+    payload
+  );
+  // Customize notification here
+  const notificationTitle =
+    payload.notification?.title || "Medication Reminder";
+  const notificationOptions = {
+    body: payload.notification?.body || "It's time to take your medication",
+    icon: "/favicon.ico",
+    data: payload.data || {},
+    actions: [
+      { action: "confirm", title: "✓ Taken" },
+      { action: "postpone", title: "⏰ Remind Later" },
+    ],
+    requireInteraction: true,
+    tag: `medication-reminder-${Date.now()}`,
+    vibrate: [200, 100, 200],
+  };
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
 // Listen for push messages
 self.addEventListener("push", (event) => {
-  console.log("[Service Worker] Push Received:", event);
+  console.log("[FCM Service Worker] Push Received:", event);
 
   let notificationData = {};
 
@@ -52,33 +75,127 @@ self.addEventListener("push", (event) => {
     icon: "/favicon.ico",
     badge: "/favicon.ico",
     data: notificationData.data || {},
+    // Add actions for more interactive notifications
+    actions: [
+      {
+        action: "confirm",
+        title: "✓ Taken",
+      },
+      {
+        action: "postpone",
+        title: "⏰ Remind Later",
+      },
+    ],
+    // Prevent notifications from being grouped together
+    tag: `medication-reminder-${Date.now()}`,
+    // Show notification with high importance
+    requireInteraction: true,
+    // Set vibration pattern to ensure notification is noticeable
+    vibrate: [200, 100, 200],
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-// Handle background messages via FCM
-messaging.onBackgroundMessage(function (payload) {
-  console.log("[Service Worker] Received background message:", payload);
-
-  const notificationTitle = payload.notification?.title || "Medication Care";
-  const notificationOptions = {
-    body: payload.notification?.body || "It's time to take your medication",
-    icon: "/favicon.ico",
-    badge: "/favicon.ico",
-    tag: payload.data?.medicationId || "medication-reminder",
-    data: payload.data || {},
-  };
-
-  return self.registration.showNotification(
-    notificationTitle,
-    notificationOptions
+  // Ensure notification is shown even when browser is closed
+  event.waitUntil(
+    self.registration.showNotification(title, options).then(() => {
+      // Store notification data for reliability
+      storeNotificationInIndexedDB(options);
+    })
   );
 });
 
+// Store notification in IndexedDB for redundancy
+const storeNotificationInIndexedDB = (options) => {
+  const dbPromise = indexedDB.open("fcm-notifications-db", 1);
+
+  dbPromise.onupgradeneeded = (event) => {
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains("notifications")) {
+      db.createObjectStore("notifications", {
+        keyPath: "id",
+        autoIncrement: true,
+      });
+    }
+  };
+
+  dbPromise.onsuccess = (event) => {
+    const db = event.target.result;
+    const tx = db.transaction("notifications", "readwrite");
+    const store = tx.objectStore("notifications");
+
+    store.add({
+      timestamp: Date.now(),
+      options: options,
+    });
+
+    console.log("[FCM Service Worker] Notification data stored in IndexedDB");
+
+    // Close the database connection when done
+    tx.oncomplete = () => {
+      db.close();
+    };
+  };
+
+  dbPromise.onerror = (error) => {
+    console.error("[FCM Service Worker] Error storing notification:", error);
+  };
+};
+
+// Periodically check for pending notifications in IndexedDB
+const checkStoredNotifications = () => {
+  console.log("[FCM Service Worker] Checking for stored notifications");
+
+  const dbPromise = indexedDB.open("fcm-notifications-db", 1);
+
+  dbPromise.onsuccess = (event) => {
+    const db = event.target.result;
+    const tx = db.transaction("notifications", "readwrite");
+    const store = tx.objectStore("notifications");
+
+    // Get all notifications stored in the last 24 hours
+    const cutoffTime = Date.now() - 24 * 60 * 60 * 1000;
+    const request = store.index
+      ? store.index("timestamp").openCursor(IDBKeyRange.lowerBound(cutoffTime))
+      : store.openCursor();
+
+    request.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        const data = cursor.value;
+
+        // Check if this notification needs to be reshown
+        if (!data.shown) {
+          self.registration
+            .showNotification(
+              data.options.title || "Medication Reminder",
+              data.options
+            )
+            .then(() => {
+              // Mark notification as shown
+              const updateData = { ...data, shown: true };
+              cursor.update(updateData);
+            });
+        }
+
+        cursor.continue();
+      }
+    };
+
+    tx.oncomplete = () => {
+      db.close();
+    };
+  };
+
+  dbPromise.onerror = (error) => {
+    console.error(
+      "[FCM Service Worker] Error checking stored notifications:",
+      error
+    );
+  };
+};
+
 // Handle notification clicks
 self.addEventListener("notificationclick", (event) => {
-  console.log("[Service Worker] Notification click received:", event);
+  console.log("[FCM Service Worker] Notification click received:", event);
 
   // Close the notification
   event.notification.close();
@@ -88,45 +205,114 @@ self.addEventListener("notificationclick", (event) => {
 
   // Handle click action
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clientList) => {
-      // If we have a client, focus it and send a message
-      for (const client of clientList) {
-        if ("focus" in client) {
-          client.focus();
-          if (event.action === "confirm") {
-            client.postMessage({
-              action: "MEDICATION_TAKEN",
-              medicationId: data.medicationId,
-            });
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        // If we have a client, focus it and send a message
+        for (const client of clientList) {
+          if ("focus" in client) {
+            client.focus();
+            if (event.action === "confirm") {
+              client.postMessage({
+                action: "MEDICATION_TAKEN",
+                medicationId: data.medicationId,
+              });
+              return;
+            }
+            if (event.action === "postpone") {
+              client.postMessage({
+                action: "POSTPONE_REMINDER",
+                medicationId: data.medicationId,
+              });
+              return;
+            }
             return;
           }
-          if (event.action === "postpone") {
-            client.postMessage({
-              action: "POSTPONE_REMINDER",
-              medicationId: data.medicationId,
-            });
-            return;
-          }
-          return;
         }
-      }
 
-      // If no client is open, open a new one
-      if (self.clients.openWindow) {
-        return self.clients.openWindow("/");
-      }
-    })
+        // If no client is open, open a new one
+        if (self.clients.openWindow) {
+          return self.clients.openWindow("/");
+        }
+      })
   );
 });
 
 // Ensure the service worker is properly activated
 self.addEventListener("activate", (event) => {
-  console.log("[Service Worker] Activate event");
-  event.waitUntil(self.clients.claim());
+  console.log("[FCM Service Worker] Activate event");
+
+  // Immediately claim clients to ensure control
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+
+      // Register for periodic sync if supported
+      "periodicSync" in self.registration
+        ? self.registration.periodicSync.register("fcm-periodic-sync", {
+            minInterval: 60 * 1000, // 1 minute in ms
+          })
+        : Promise.resolve(),
+    ])
+  );
+
+  // Check stored notifications upon activation
+  checkStoredNotifications();
+});
+
+// Periodic Sync API support (when available)
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === "fcm-periodic-sync") {
+    event.waitUntil(checkStoredNotifications());
+  }
 });
 
 // Log installation
 self.addEventListener("install", (event) => {
-  console.log("[Service Worker] Install event");
-  self.skipWaiting();
+  console.log("[FCM Service Worker] Install event");
+  // Skip waiting to become active immediately
+  event.waitUntil(self.skipWaiting());
+});
+
+// Add fetch event handler to keep the service worker alive
+self.addEventListener("fetch", (event) => {
+  // Handle keep-alive ping requests
+  if (event.request.url.includes("keep-alive")) {
+    event.respondWith(
+      new Response("Firebase service worker is alive", {
+        headers: { "Content-Type": "text/plain" },
+      })
+    );
+  }
+});
+
+// Listen for messages from the main app
+self.addEventListener("message", (event) => {
+  console.log("[FCM Service Worker] Message received:", event.data);
+
+  if (event.data.type === "checkNotifications") {
+    checkStoredNotifications();
+  }
+
+  // Skip waiting if requested
+  if (event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+// Periodically check for pending notifications
+self._checkInterval = setInterval(() => {
+  console.log("[FCM Service Worker] Running periodic check");
+  checkStoredNotifications();
+}, 30000);
+
+// Clean up when terminated
+self.addEventListener("beforeunload", () => {
+  if (self._checkInterval) {
+    clearInterval(self._checkInterval);
+  }
+});
+
+window.addEventListener("beforeunload", function (e) {
+  // Send a message to your server or trigger FCM here
 });
