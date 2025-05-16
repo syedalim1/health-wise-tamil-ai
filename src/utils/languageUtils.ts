@@ -4,7 +4,7 @@ export type Language = "english" | "tamil" | "hindi";
 
 const strings = {
   english: {
-    appTitle: "Tablet Remember",
+    appTitle: "Medication Care",
     tabletReminder: "Tablet Reminder",
     tabletReminderDesc: "Manage your medication schedule",
     calendar: "Calendar",
@@ -93,7 +93,7 @@ const strings = {
     seconds: "seconds",
   },
   tamil: {
-    appTitle: "Tablet Remember",
+    appTitle: "Medication Care",
     tabletReminder: "மாத்திரை நினைவூட்டல்",
     tabletReminderDesc: "உங்கள் மருந்து அட்டவணையை நிர்வகிக்கவும்",
     calendar: "நாட்காட்டி",
@@ -186,7 +186,7 @@ const strings = {
     seconds: "நொடிகள்",
   },
   hindi: {
-    appTitle: "Tablet Remember",
+    appTitle: "Medication Care",
     tabletReminder: "टैबलेट रिमाइंडर",
     tabletReminderDesc: "अपनी दवा का शेड्यूल प्रबंधित करें",
     calendar: "कैलेंडर",
