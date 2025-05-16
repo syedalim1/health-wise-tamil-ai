@@ -1,11 +1,13 @@
-
 // author Syed SEO
 // remove unwanted seo
-export type Language = 'english' | 'tamil' | 'hindi' | 'tanglish';
+export type Language = "english" | "tamil" | "hindi" | "tanglish";
 
 export interface LanguageStrings {
+  appTitle: string;
+
   stockTracker: string;
   chatAssistant: string;
+  tabletReminder: string;
   morning: string;
   afternoon: string;
   evening: string;
@@ -27,6 +29,8 @@ export interface LanguageStrings {
 
 // The base English strings
 const englishStrings: LanguageStrings = {
+  appTitle: "Smart Health Companion",
+  tabletReminder: "Medication Reminders",
   stockTracker: "Stock Tracker",
   chatAssistant: "Health Assistant",
   morning: "Morning",
@@ -45,13 +49,16 @@ const englishStrings: LanguageStrings = {
   chatPlaceholder: "Ask about your health concerns...",
   send: "Send",
   emergencyAlert: "Emergency Alert",
-  emergencyMessage: "This might be an emergency. Please call 108 or visit the nearest hospital.",
+  emergencyMessage:
+    "This might be an emergency. Please call 108 or visit the nearest hospital.",
 };
 
 // Tamil translations
 const tamilStrings: LanguageStrings = {
   stockTracker: "ஸ்டாக் ட்ராக்கர்",
   chatAssistant: "ஆரோக்கிய உதவியாளர்",
+  appTitle: "ஸ்மார்ட் ஹெல்த் கம்பானியன்",
+  tabletReminder: "மருந்து நினைவூட்டல்கள்",
   morning: "காலை",
   afternoon: "மதியம்",
   evening: "மாலை",
@@ -64,17 +71,21 @@ const tamilStrings: LanguageStrings = {
   cancel: "ரத்து செய்",
   stockLeft: "மிஞ்சியுள்ள மாத்திரைகள்",
   refillNeeded: "நிரப்ப வேண்டும்",
-  refillAlert: "வெறும் {count} மாத்திரைகள் மட்டுமே உள்ளன. உங்கள் மருந்து சீட்டை நிரப்ப நேரம்.",
+  refillAlert:
+    "வெறும் {count} மாத்திரைகள் மட்டுமே உள்ளன. உங்கள் மருந்து சீட்டை நிரப்ப நேரம்.",
   chatPlaceholder: "உங்கள் ஆரோக்கிய கவலைகள் பற்றி கேளுங்கள்...",
   send: "அனுப்பு",
   emergencyAlert: "அவசர எச்சரிக்கை",
-  emergencyMessage: "இது ஒரு அவசரநிலையாக இருக்கலாம். தயவுசெய்து 108ஐ அழைக்கவும் அல்லது அருகிலுள்ள மருத்துவமனைக்குச் செல்லவும்.",
+  emergencyMessage:
+    "இது ஒரு அவசரநிலையாக இருக்கலாம். தயவுசெய்து 108ஐ அழைக்கவும் அல்லது அருகிலுள்ள மருத்துவமனைக்குச் செல்லவும்.",
 };
 
 // Hindi translations
 const hindiStrings: LanguageStrings = {
   stockTracker: "स्टॉक ट्रैकर",
   chatAssistant: "स्वास्थ्य सहायक",
+  appTitle: "स्मार्ट हेल्थ कम्पैनियन",
+  tabletReminder: "दवा अनुस्मारक",
   morning: "सुबह",
   afternoon: "दोपहर",
   evening: "शाम",
@@ -91,13 +102,16 @@ const hindiStrings: LanguageStrings = {
   chatPlaceholder: "अपने स्वास्थ्य संबंधी चिंताओं के बारे में पूछें...",
   send: "भेजें",
   emergencyAlert: "आपातकालीन अलर्ट",
-  emergencyMessage: "यह एक आपातकालीन स्थिति हो सकती है। कृपया 108 पर कॉल करें या नजदीकी अस्पताल जाएँ।",
+  emergencyMessage:
+    "यह एक आपातकालीन स्थिति हो सकती है। कृपया 108 पर कॉल करें या नजदीकी अस्पताल जाएँ।",
 };
 
 // Tanglish translations (Tamil written with English characters)
 const tanglishStrings: LanguageStrings = {
   stockTracker: "Stock Tracker",
   chatAssistant: "Arokkiya Uthaviyalar",
+  appTitle: "Smart Health Companion",
+  tabletReminder: "Marundu Ninaivutalgal",
   morning: "Kaalai",
   afternoon: "Madhiyam",
   evening: "Maalai",
@@ -110,11 +124,13 @@ const tanglishStrings: LanguageStrings = {
   cancel: "Rathu Sei",
   stockLeft: "Minchiyulla Mathiraigal",
   refillNeeded: "Nirappu Thevai",
-  refillAlert: "Verum {count} mathiraigal mattume ullana. Ungal marundu seettai nirappu neram.",
+  refillAlert:
+    "Verum {count} mathiraigal mattume ullana. Ungal marundu seettai nirappu neram.",
   chatPlaceholder: "Ungal arokkiya kavalaikal patri kelungal...",
   send: "Anuppu",
   emergencyAlert: "Avasara Echcharikai",
-  emergencyMessage: "Ithu oru avasara nilai irukkalam. Thayavu seithu 108 azhaikavum alladu arugil ulla maruthuvamanaikku sellvum.",
+  emergencyMessage:
+    "Ithu oru avasara nilai irukkalam. Thayavu seithu 108 azhaikavum alladu arugil ulla maruthuvamanaikku sellvum.",
 };
 
 const allLanguages: Record<Language, LanguageStrings> = {
