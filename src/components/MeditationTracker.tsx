@@ -77,10 +77,7 @@ const MeditationTracker: React.FC<MeditationTrackerProps> = ({ language }) => {
 
   const meditationTypes = [
     { value: "mindfulness", label: "Mindfulness Meditation" },
-    { value: "breathing", label: "Breathing Meditation" },
-    { value: "body-scan", label: "Body Scan Meditation" },
-    { value: "loving-kindness", label: "Loving-Kindness Meditation" },
-    { value: "yoga", label: "Yoga Meditation" },
+    
   ];
 
   // Load previous sessions on component mount
