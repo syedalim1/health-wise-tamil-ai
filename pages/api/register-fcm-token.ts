@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import admin from "firebase-admin";
 
+const privateKey =
+  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDVpjYhWdLQM7EZ\npyO/mIJRjGxiIcWMCtIOKftR5dROu+kfdQflqIjcfzTmWwH58VEzJbJcgK851O1s\n...rest_of_private_key...\n-----END PRIVATE KEY-----\n";
 // Initialize Firebase Admin SDK if it hasn't been initialized already
 if (!admin.apps.length) {
   try {
@@ -9,8 +11,9 @@ if (!admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert({
         projectId: "asmi-project-notification",
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+        clientEmail:
+          "firebase-adminsdk-fbsvc@asmi-project-notification.iam.gserviceaccount.com",
+        privateKey: privateKey?.replace(/\\n/g, "\n"),
       }),
       // Optional, if you're using Firestore
       databaseURL: `https://asmi-project-notification.firebaseio.com`,

@@ -1,94 +1,79 @@
-import React, { useState, useEffect } from "react";
-import Navbar from "@/components/Navbar";
-import TabletReminder from "@/components/TabletReminder";
-import ChatAssistant from "@/components/ChatAssistant";
-import MedicationCalendar from "@/components/MedicationCalendar";
-import { Language } from "@/utils/languageUtils";
-import { askNotificationPermission } from "@/utils/notificationUtils";
-import { toast } from "@/components/ui/use-toast";
-import AnimatedBackground from "@/components/AnimatedBackground";
-import MeditationTracker from "@/components/MeditationTracker";
+"use client";
+import { useEffect, useState } from "react";
+import { getToken, onMessage } from "firebase/messaging";
+import { messaging } from "@/utils/firebase";
 
-const Index = () => {
-  const [currentLanguage, setCurrentLanguage] = useState<Language>("english");
-  const [activeTab, setActiveTab] = useState<string>("reminder");
-  const [notificationsEnabled, setNotificationsEnabled] =
-    useState<boolean>(false);
+export default function Home() {
+  const [token, setToken] = useState("");
+  const [time, setTime] = useState("");
+
+  const vapidKey =
+    "BL6WDWYOmUXReKuOauKDP4VMbPTM5WL1GcdNMUPZdgiwOwg1KVXRIJTITReuBQMsw63OUS2Bn8jyy0ygKSfeZE8	"; // From Firebase Console
 
   useEffect(() => {
-    // Request notification permissions when the app loads
-    const requestPermission = async () => {
-      try {
-        const hasPermission = await askNotificationPermission();
-        setNotificationsEnabled(hasPermission);
-
-        if (hasPermission) {
-          toast({
-            title: "Notifications enabled",
-            description: "You will receive Medication Cares.",
-            variant: "default",
-          });
-        } else {
-          toast({
-            title: "Notifications disabled",
-            description:
-              "Please enable notifications to receive Medication Cares.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error requesting notification permission:", error);
-        toast({
-          title: "Error",
-          description: "Could not request notification permissions.",
-          variant: "destructive",
-        });
+    // Ask notification permission
+    Notification.requestPermission().then(async (permission) => {
+      if (permission === "granted") {
+        const fcmToken = await getToken(messaging, { vapidKey });
+        setToken(fcmToken);
+        console.log("FCM Token:", fcmToken);
       }
-    };
+    });
 
-    requestPermission();
-
-    // Load saved language preference
-    const savedLanguage = localStorage.getItem("preferredLanguage");
-    if (savedLanguage) {
-      setCurrentLanguage(savedLanguage as Language);
-    }
+    // Listen if browser is open
+    onMessage(messaging, (payload) => {
+      const { title, ...options } = payload.notification;
+      new Notification(title, options);
+    });
   }, []);
 
-  // Save language preference when it changes
-  useEffect(() => {
-    localStorage.setItem("preferredLanguage", currentLanguage);
-  }, [currentLanguage]);
+  const handleSchedule = async () => {
+    if (!token) {
+      alert("Token illa, permission enable pannunga");
+      return;
+    }
 
+    // Immediate notification example
+    new Notification("Notification Title", {
+      body: "Button click panna notification varuthu",
+    });
+
+    // Also call your API to schedule for later if needed
+    /*
+    const res = await fetch("/api/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ time, token }),
+    });
+    const json = await res.json();
+    alert(json.message);
+    */
+  };
+  
+  const handleSendNotification = async () => {
+    if (!token) return alert("Token illa");
+
+    const res = await fetch("/api/sendNotification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+
+    const data = await res.json();
+    alert(data.message);
+  };
+  
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <AnimatedBackground opacity={0.03} />
-
-      <Navbar
-        currentLanguage={currentLanguage}
-        onLanguageChange={setCurrentLanguage}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
+    <div>
+      <h1>Schedule Notification</h1>
+      <input
+        type="datetime-local"
+        value={time}
+        onChange={(e) => setTime(e.target.value)}
       />
+      <button onClick={handleSchedule}>Schedule</button>
 
-      <div className="container mx-auto px-4 py-6 flex-grow relative z-10">
-        {activeTab === "reminder" && (
-          <TabletReminder language={currentLanguage} />
-        )}
-
-        {activeTab === "calendar" && (
-          <MedicationCalendar language={currentLanguage} />
-        )}
-
-        {activeTab === "meditation" && (
-          <MeditationTracker language={currentLanguage} />
-        )}
-
-      
-        {activeTab === "chat" && <ChatAssistant language={currentLanguage} />}
-      </div>
+      <button onClick={handleSendNotification}>Send Notification</button>
     </div>
   );
-};
-
-export default Index;
+}
