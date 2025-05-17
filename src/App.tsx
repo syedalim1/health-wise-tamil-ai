@@ -84,7 +84,7 @@ const AppContent = () => {
           path="/"
           element={
             <ProtectedRoute>
-              <NotificationExample />
+              {/* <NotificationExample /> */}
               <TabletReminder language={currentLanguage} />
             </ProtectedRoute>
           }
