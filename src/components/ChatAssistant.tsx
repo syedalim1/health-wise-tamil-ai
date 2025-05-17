@@ -529,108 +529,10 @@ You are a multilingual health assistant. Based on the user's symptoms or questio
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <MessageCircle className="h-6 w-6 text-health-primary" />
-          {isEditingTitle ? (
-            <div className="flex items-center gap-1">
-              <Input
-                value={editingTitle}
-                onChange={(e) => setEditingTitle(e.target.value)}
-                className="h-8 w-40 text-lg font-semibold"
-                autoFocus
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={handleSaveConversation}
-              >
-                <Check className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={cancelTitleEdit}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1" onClick={startTitleEdit}>
-              <h2 className="text-2xl font-semibold text-gray-800 cursor-pointer">
-                {conversationTitle || strings.chatAssistant}
-              </h2>
-              <Edit className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer" />
-            </div>
-          )}
+          Smart Health Assistant
         </div>
 
         <div className="flex gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Settings className="h-4 w-4 mr-1" />
-                Settings
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Label>Temperature: {temperature.toFixed(1)}</Label>
-                  </div>
-                  <Slider
-                    value={[temperature]}
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    onValueChange={(value) => setTemperature(value[0])}
-                  />
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="streaming"
-                    checked={streaming}
-                    onCheckedChange={setStreaming}
-                  />
-                  <Label htmlFor="streaming">Enable streaming responses</Label>
-                </div>
-
-                <div className="pt-2 border-t">
-                  <h3 className="font-medium mb-2">API Configuration</h3>
-                  <p className="text-xs text-gray-500">
-                    {getApiKey()
-                      ? "API key is set in environment variables"
-                      : "No API key configured. Please set VITE_GEMINI_API_KEY in your environment."}
-                  </p>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowConversations(true)}
-          >
-            <ListFilter className="h-4 w-4 mr-1" />
-            History
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRegenerateResponse}
-            disabled={
-              isLoading ||
-              messages.length === 0 ||
-              !messages.some((m) => !m.isUser)
-            }
-          >
-            <RefreshCw className="h-4 w-4 mr-1" />
-            Regenerate
-          </Button>
-
           <Button
             variant="outline"
             size="sm"
