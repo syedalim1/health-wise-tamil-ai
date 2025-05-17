@@ -3,24 +3,13 @@ import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 // Firebase configuration from your environment or hardcoded
 const firebaseConfig = {
-  apiKey:
-    process.env.NEXT_PUBLIC_FIREBASE_API_KEY ||
-    "AIzaSyD72JjYaqmgwYw7eSTlyM_9dy-EevE9bUQ",
-  authDomain:
-    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ||
-    "asmi-project-notification.firebaseapp.com",
-  projectId:
-    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "asmi-project-notification",
-  storageBucket:
-    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
-    "asmi-project-notification.firebasestorage.app",
-  messagingSenderId:
-    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "936650736998",
-  appId:
-    process.env.NEXT_PUBLIC_FIREBASE_APP_ID ||
-    "1:936650736998:web:34fbf60a68aa59712574a7",
+  apiKey: "AIzaSyD72JjYaqmgwYw7eSTlyM_9dy-EevE9bUQ",
+  authDomain: "asmi-project-notification.firebaseapp.com",
+  projectId: "asmi-project-notification",
+  storageBucket: "asmi-project-notification.firebasestorage.app",
+  messagingSenderId: "936650736998",
+  appId: "1:936650736998:web:34fbf60a68aa59712574a7",
 };
-
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 

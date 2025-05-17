@@ -1,15 +1,22 @@
-// pages/api/sendNotification.js
 import admin from "firebase-admin";
-import { log } from "node:console";
+import path from "path";
+import fs from "fs";
 
 if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    }),
-  });
+  try {
+    // Read service account key from file
+    const serviceAccountPath = path.resolve(process.cwd(), "service_key.json");
+    const serviceAccount = JSON.parse(
+      fs.readFileSync(serviceAccountPath, "utf8")
+    );
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log("Firebase Admin SDK initialized successfully");
+  } catch (error) {
+    console.error("Error initializing Firebase Admin SDK:", error);
+  }
 }
 
 export default async function handler(req, res) {

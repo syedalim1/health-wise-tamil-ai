@@ -27,6 +27,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import Home from "./pages/Index";
+import NotificationTest from "./pages/NotificationTest";
 
 const AppContent = () => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>("english");
@@ -82,9 +83,10 @@ const AppContent = () => {
           path="/"
           element={
             <ProtectedRoute>
-              {/* <TabletReminder language={currentLanguage} />
-               */}
+              <TabletReminder language={currentLanguage} />
+              
               <Home />
+              <NotificationTest />
             </ProtectedRoute>
           }
         />

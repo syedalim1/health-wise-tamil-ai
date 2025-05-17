@@ -1,321 +1,233 @@
-// Service Worker for handling notifications
+// --- Constants ---
+const DB_NAME = "notifications-db";
+const DB_VERSION = 1;
+const STORE_NAME = "notifications";
+const NOTIFICATION_CHECK_INTERVAL = 60000; // 1 minute
+
+// --- DB Helper ---
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, {
+          keyPath: "id",
+          autoIncrement: true,
+        });
+        console.log("[SW] Created object store");
+      }
+    };
+
+    request.onsuccess = (event) => resolve(event.target.result);
+    request.onerror = (event) => reject(event.target.error);
+  });
+}
+
+// --- Install & Activate ---
 self.addEventListener("install", (event) => {
-  console.log("[Service Worker] Installing...");
-  // Force immediate installation to make it available to all pages right away
+  console.log("[SW] Installing...");
   event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
-  console.log("[Service Worker] Activating...");
-  // Claim control over all clients immediately
+  console.log("[SW] Activating...");
   event.waitUntil(
-    Promise.all([
-      self.clients.claim(),
-      // Register for periodic sync if supported
-      "periodicSync" in self.registration
-        ? self.registration.periodicSync.register(
+    (async () => {
+      await self.clients.claim();
+
+      if ("periodicSync" in self.registration) {
+        try {
+          await self.registration.periodicSync.register(
             "notification-periodic-sync",
-            {
-              minInterval: 60 * 1000, // 1 minute in ms
-            }
-          )
-        : Promise.resolve(),
-    ])
+            { minInterval: 60 * 1000 }
+          );
+          console.log("[SW] Periodic sync registered");
+        } catch (e) {
+          console.error("[SW] Periodic sync error:", e);
+        }
+      }
+    })()
   );
 });
 
-// Listen for messages from the main thread
+// --- Message from Client ---
 self.addEventListener("message", (event) => {
-  console.log("[Service Worker] Message received:", event.data);
+  const data = event.data;
+  console.log("[SW] Message received:", data);
 
-  if (event.data.type === "scheduleNotification") {
-    const { timeInMs, options } = event.data;
-
-    // Store the notification data in IndexedDB
+  if (data.type === "scheduleNotification") {
+    const { timeInMs, options } = data;
     storeNotificationData(timeInMs, options);
 
-    // Use the Notification Trigger API (if available)
     if ("showTrigger" in Notification.prototype) {
       const trigger = new TimestampTrigger(Date.now() + timeInMs);
       self.registration.showNotification(options.title, {
         ...options,
         showTrigger: trigger,
       });
-      console.log(
-        `[Service Worker] Scheduled notification with trigger for ${new Date(
-          Date.now() + timeInMs
-        )}`
-      );
     } else {
-      // Fallback to push notification system if available
-      console.log(
-        `[Service Worker] Using traditional method for ${new Date(
-          Date.now() + timeInMs
-        )}`
-      );
-
-      // Schedule background sync for reliability
-      Promise.all([
-        // Register for one-time sync
-        "sync" in self.registration
-          ? self.registration.sync.register("notification-sync")
-          : Promise.resolve(),
-
-        // Fall back to setTimeout as a last resort
-        new Promise((resolve) => {
-          setTimeout(() => {
-            self.registration
-              .showNotification(options.title, options)
-              .then(() => {
-                if (options.sound) {
-                  // Store sound URL in notification data for later access
-                  self._notificationSound = options.sound;
-                }
-                resolve();
-              });
-          }, timeInMs);
-        }),
-      ]);
+      if ("sync" in self.registration) {
+        self.registration.sync.register("notification-sync");
+      }
+      setTimeout(() => {
+        self.registration.showNotification(options.title, options);
+      }, timeInMs);
     }
   }
 
-  // Add handling for checkScheduledNotifications message
-  if (event.data.type === "checkScheduledNotifications") {
+  if (data.type === "checkScheduledNotifications") {
     checkScheduledNotifications();
   }
 
-  // Handle SKIP_WAITING message
-  if (event.data.type === "SKIP_WAITING") {
+  if (data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
 
-// Store notification data in IndexedDB for persistence
-const storeNotificationData = (timeInMs, options) => {
-  const dbPromise = indexedDB.open("notifications-db", 1);
+// --- Store Notification ---
+async function storeNotificationData(timeInMs, options) {
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
 
-  dbPromise.onupgradeneeded = (event) => {
-    const db = event.target.result;
-    if (!db.objectStoreNames.contains("notifications")) {
-      db.createObjectStore("notifications", {
-        keyPath: "id",
-        autoIncrement: true,
-      });
-    }
-  };
-
-  dbPromise.onsuccess = (event) => {
-    const db = event.target.result;
-    const tx = db.transaction("notifications", "readwrite");
-    const store = tx.objectStore("notifications");
-
-    store.add({
+    await store.add({
       scheduledTime: Date.now() + timeInMs,
-      options: options,
+      options,
     });
 
-    console.log("[Service Worker] Notification data stored in IndexedDB");
-  };
+    console.log("[SW] Stored notification data in IndexedDB");
+  } catch (error) {
+    console.error("[SW] Error storing notification:", error);
+  }
+}
 
-  dbPromise.onerror = (error) => {
-    console.error("[Service Worker] IndexedDB error:", error);
-  };
-};
+// --- Check & Show Scheduled Notifications ---
+async function checkScheduledNotifications() {
+  console.log("[SW] Checking scheduled notifications...");
 
-// Sync event to wake up the service worker and check for notifications
+  try {
+    const db = await openDatabase();
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const now = Date.now();
+    const pending = [];
+
+    const cursorRequest = store.openCursor();
+    cursorRequest.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (cursor) {
+        const { scheduledTime, options } = cursor.value;
+        if (scheduledTime <= now) {
+          const p = self.registration
+            .showNotification(options.title, options)
+            .then(() => cursor.delete());
+          pending.push(p);
+        }
+        cursor.continue();
+      } else {
+        Promise.all(pending).then(() => {
+          console.log("[SW] Finished showing due notifications.");
+        });
+      }
+    };
+
+    cursorRequest.onerror = (e) =>
+      console.error("[SW] Cursor error:", e.target.error);
+  } catch (e) {
+    console.error("[SW] checkScheduledNotifications error:", e);
+  }
+}
+
+// --- Background Sync ---
 self.addEventListener("sync", (event) => {
   if (event.tag === "notification-sync") {
     event.waitUntil(checkScheduledNotifications());
   }
 });
 
-// Periodic Sync API support (for consistent wake-ups)
+// --- Periodic Sync ---
 self.addEventListener("periodicsync", (event) => {
   if (event.tag === "notification-periodic-sync") {
     event.waitUntil(checkScheduledNotifications());
   }
 });
 
-// Periodically check for scheduled notifications (every minute)
-const NOTIFICATION_CHECK_INTERVAL = 60000; // 1 minute
+// --- In-memory check (optional) ---
 self._checkInterval = setInterval(() => {
   checkScheduledNotifications();
 }, NOTIFICATION_CHECK_INTERVAL);
 
-// Check IndexedDB for scheduled notifications
-const checkScheduledNotifications = async () => {
-  console.log("[Service Worker] Checking scheduled notifications");
-
-  return new Promise((resolveMain, rejectMain) => {
-    const dbPromise = indexedDB.open("notifications-db", 1);
-
-    dbPromise.onsuccess = (event) => {
-      const db = event.target.result;
-      const tx = db.transaction("notifications", "readwrite");
-      const store = tx.objectStore("notifications");
-      const now = Date.now();
-      let pendingNotifications = 0;
-      let shownNotifications = 0;
-
-      const pendingPromises = [];
-
-      store.openCursor().onsuccess = (event) => {
-        const cursor = event.target.result;
-        if (cursor) {
-          const notification = cursor.value;
-          pendingNotifications++;
-
-          if (notification.scheduledTime <= now) {
-            // Show the notification if it's time
-            const notificationPromise = self.registration
-              .showNotification(
-                notification.options.title,
-                notification.options
-              )
-              .then(() => {
-                // Remove this notification from the database
-                cursor.delete();
-                shownNotifications++;
-                console.log(
-                  "[Service Worker] Showing and removing scheduled notification"
-                );
-              })
-              .catch((error) => {
-                console.error(
-                  "[Service Worker] Error showing notification:",
-                  error
-                );
-              });
-
-            pendingPromises.push(notificationPromise);
-          }
-          cursor.continue();
-        } else {
-          // Cursor is complete
-          console.log(
-            `[Service Worker] Notification check complete. Found ${pendingNotifications} pending, showed ${shownNotifications}`
-          );
-
-          // Resolve when all notifications are processed
-          Promise.all(pendingPromises)
-            .then(() => resolveMain())
-            .catch((err) => {
-              console.error(
-                "[Service Worker] Error processing notifications:",
-                err
-              );
-              resolveMain(); // Still resolve the main promise even if some notifications failed
-            });
-        }
-      };
-
-      tx.oncomplete = () => {
-        // Close the database connection when transaction is complete
-        db.close();
-      };
-    };
-
-    dbPromise.onerror = (error) => {
-      console.error("[Service Worker] Error checking notifications:", error);
-      rejectMain(error);
-    };
-  });
-};
-
-// Listen for push events
+// --- Push Notification (from FCM) ---
 self.addEventListener("push", (event) => {
-  console.log("[Service Worker] Push received:", event);
-
+  console.log("[SW] Push received");
   if (event.data) {
     try {
       const data = event.data.json();
-      const title = data.title || "Health Reminder";
+      const title = data.title || "Reminder";
       const options = data.options || {
-        body: "It's time for your medication",
+        body: "You have a task!",
         icon: "/favicon.ico",
-        requireInteraction: true, // Keep notification visible until user interacts
-        tag: `medication-reminder-${Date.now()}`,
-        actions: [
-          {
-            action: "confirm",
-            title: "✓ Taken",
-          },
-          {
-            action: "postpone",
-            title: "⏰ Remind Later",
-          },
-        ],
+        requireInteraction: true,
+        tag: `reminder-${Date.now()}`,
       };
 
       event.waitUntil(self.registration.showNotification(title, options));
     } catch (e) {
-      console.error("[Service Worker] Error handling push event:", e);
+      console.error("[SW] Push error:", e);
     }
   }
 });
 
-// Handle notification click to play sound and open the app
+// --- Click Events ---
 self.addEventListener("notificationclick", (event) => {
-  console.log("[Service Worker] Notification clicked:", event);
+  console.log("[SW] Notification clicked:", event);
   event.notification.close();
 
-  const notificationData = event.notification.data || {};
+  const data = event.notification.data || {};
 
-  // Play sound if available
-  if (self._notificationSound || notificationData.sound) {
-    const soundUrl = self._notificationSound || notificationData.sound;
-
-    // Try to communicate with client to play sound
-    self.clients.matchAll({ type: "window" }).then((clientList) => {
-      if (clientList.length > 0) {
-        clientList[0].postMessage({
-          type: "playSound",
-          sound: soundUrl,
-        });
+  if (self._notificationSound || data.sound) {
+    const sound = self._notificationSound || data.sound;
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      if (clients.length > 0) {
+        clients[0].postMessage({ type: "playSound", sound });
       }
     });
-
-    // Clear sound reference
-    self._notificationSound = null;
   }
 
-  // Handle specific actions if any
-  if (event.action === "confirm" && notificationData.medicationId) {
-    self.clients.matchAll({ type: "window" }).then((clientList) => {
-      for (const client of clientList) {
+  if (event.action === "confirm" && data.medicationId) {
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      clients.forEach((client) =>
         client.postMessage({
           action: "MEDICATION_TAKEN",
-          medicationId: notificationData.medicationId,
-        });
-      }
-    });
-  } else if (event.action === "postpone" && notificationData.medicationId) {
-    self.clients.matchAll({ type: "window" }).then((clientList) => {
-      for (const client of clientList) {
-        client.postMessage({
-          action: "POSTPONE_REMINDER",
-          medicationId: notificationData.medicationId,
-        });
-      }
+          medicationId: data.medicationId,
+        })
+      );
     });
   }
 
-  // Open a window if no clients are open
+  if (event.action === "postpone" && data.medicationId) {
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      clients.forEach((client) =>
+        client.postMessage({
+          action: "POSTPONE_REMINDER",
+          medicationId: data.medicationId,
+        })
+      );
+    });
+  }
+
   event.waitUntil(
-    self.clients.matchAll({ type: "window" }).then((clientList) => {
-      if (clientList.length > 0) {
-        return clientList[0].focus();
-      } else {
-        return self.clients.openWindow("/");
-      }
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      return clients.length ? clients[0].focus() : self.clients.openWindow("/");
     })
   );
 });
 
-// Keep the service worker alive with an active fetch handler
+// --- Fetch: Keep-alive check ---
 self.addEventListener("fetch", (event) => {
-  // We need to define a custom strategy to keep the service worker active
-  // This will also ensure the service worker stays registered
   if (event.request.url.includes("keep-alive")) {
     event.respondWith(
       new Response("Service worker is alive", {
@@ -323,12 +235,10 @@ self.addEventListener("fetch", (event) => {
       })
     );
   }
-  // For other requests, use default browser handling
 });
 
-// Make sure indexedDB connections are properly closed when service worker is terminated
+// --- Cleanup ---
 self.addEventListener("beforeunload", () => {
-  // Clear the interval
   if (self._checkInterval) {
     clearInterval(self._checkInterval);
   }

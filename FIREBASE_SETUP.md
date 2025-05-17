@@ -18,7 +18,7 @@ const firebaseConfig = {
   projectId: "asmi-project-notification",
   storageBucket: "asmi-project-notification.firebasestorage.app",
   messagingSenderId: "936650736998",
-  appId: "1:936650736998:web:34fbf60a68aa59712574a7",
+  appId: "1:936650736998:web:34fbf60a68aa59712574a7"
 };
 ```
 

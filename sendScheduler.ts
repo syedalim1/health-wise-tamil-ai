@@ -1,7 +1,7 @@
-import admin from 'firebase-admin';
-import fs from 'fs';
-import path from 'path';
-import cron from 'node-cron';
+import admin from "firebase-admin";
+import fs from "fs";
+import path from "path";
+import cron from "node-cron";
 
 interface NotificationEntry {
   time: string;
@@ -17,22 +17,24 @@ const privateKey =
   "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDVpjYhWdLQM7EZ\npyO/mIJRjGxiIcWMCtIOKftR5dROu+kfdQflqIjcfzTmWwH58VEzJbJcgK851O1s\n...rest_of_private_key...\n-----END PRIVATE KEY-----\n";
 
 if (!projectId || !clientEmail || !privateKey) {
-  throw new Error("Missing Firebase Admin SDK environment variables. Make sure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set.");
+  throw new Error(
+    "Missing Firebase Admin SDK environment variables. Make sure FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY are set."
+  );
 }
 
+// Initialize Firebase Admin SDK
+const serviceAccount = require("@/service_key.json");
 admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: projectId,
-    clientEmail: clientEmail,
-    privateKey: privateKey.replace(/\\n/g, '\n'),
-  }),
+  credential: admin.credential.cert(serviceAccount),
 });
 
-const dbPath = path.resolve('notifications.json');
+const dbPath = path.resolve("notifications.json");
 
-cron.schedule('* * * * *', async () => {
+cron.schedule("* * * * *", async () => {
   const now = new Date();
-  const data: NotificationEntry[] = fs.existsSync(dbPath) ? JSON.parse(fs.readFileSync(dbPath, 'utf-8')) : [];
+  const data: NotificationEntry[] = fs.existsSync(dbPath)
+    ? JSON.parse(fs.readFileSync(dbPath, "utf-8"))
+    : [];
 
   const remaining: NotificationEntry[] = [];
 
@@ -42,17 +44,17 @@ cron.schedule('* * * * *', async () => {
       await admin.messaging().send({
         token: entry.token,
         notification: {
-          title: 'Health Reminder',
-          body: 'Time to take your medicine!',
+          title: "Health Reminder",
+          body: "Time to take your medicine!",
         },
         webpush: {
           notification: {
-            icon: '/favicon.ico',
+            icon: "/favicon.ico",
             requireInteraction: true,
           },
         },
       });
-      console.log('Notification sent to:', entry.token);
+      console.log("Notification sent to:", entry.token);
     } else {
       remaining.push(entry);
     }

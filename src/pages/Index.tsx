@@ -2,16 +2,17 @@
 import { useEffect, useState } from "react";
 import { getToken, onMessage } from "firebase/messaging";
 import { messaging } from "@/utils/firebase";
+import axios from "axios";
 
 export default function Home() {
   const [token, setToken] = useState("");
   const [time, setTime] = useState("");
 
   const vapidKey =
-    "BL6WDWYOmUXReKuOauKDP4VMbPTM5WL1GcdNMUPZdgiwOwg1KVXRIJTITReuBQMsw63OUS2Bn8jyy0ygKSfeZE8	"; 
+    "BL6WDWYOmUXReKuOauKDP4VMbPTM5WL1GcdNMUPZdgiwOwg1KVXRIJTITReuBQMsw63OUS2Bn8jyy0ygKSfeZE8	";
 
-    console.log("VAPID Key:", vapidKey);
-    
+  console.log("VAPID Key:", vapidKey);
+
   useEffect(() => {
     // Ask notification permission
     const initializeAndGetToken = async () => {
@@ -31,16 +32,18 @@ export default function Home() {
             // Check if Notification API is supported and permission is granted
             if (Notification.permission === "granted") {
               const { title, ...options } = payload.notification || {}; // Add fallback for payload.notification
-              if (title) { // Only create notification if title exists
+              if (title) {
+                // Only create notification if title exists
                 new Notification(title, options);
               } else {
                 console.warn("Notification payload missing title:", payload);
               }
             } else {
-              console.warn("Notification permission not granted or Notification API not supported.");
+              console.warn(
+                "Notification permission not granted or Notification API not supported."
+              );
             }
           });
-
         } else {
           console.error("Firebase messaging could not be initialized.");
         }
@@ -48,7 +51,6 @@ export default function Home() {
     };
 
     initializeAndGetToken();
-
   }, []);
 
   const handleSchedule = async () => {
@@ -73,20 +75,24 @@ export default function Home() {
     // alert(json.message);
     // */
   };
-  
+
   const handleSendNotification = async () => {
     if (!token) return alert("Token illa");
 
-    const res = await fetch("/api/sendNotification", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+    // const res = await fetch("/api/sendNotification", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({ token }),
+    // });
+
+    const res = await axios.post("/api/sendNotification", {
+      token,
     });
 
-    const data = await res.json();
+    const data = res.data;
     alert(data.message);
   };
-  
+
   return (
     <div>
       <h1>Schedule Notification</h1>
