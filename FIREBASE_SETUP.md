@@ -26,7 +26,7 @@ The VAPID key for web push notifications has also been configured:
 
 ```javascript
 const vapidKey =
-  "BL6WDWYOmUXReKuOauKDP4VMbPTM5WL1GcdNMUPZdgiwOwg1KVXRIJTITReuBQMsw63OUS2Bn8jyy0ygKSfeZE8";
+"BL6WDWYOmUXReKuOauKDP4VMbPTM5WL1GcdNMUPZdgiwOwg1KVXRIJTITReuBQMsw63OUS2Bn8jyy0ygKSfeZE8	"; // From Firebase Console
 ```
 
 These configurations are already set in:
