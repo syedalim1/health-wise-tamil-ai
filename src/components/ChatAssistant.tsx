@@ -4,8 +4,19 @@ import {
   AlertTriangle,
   Bot,
   MessageCircle,
-  MessageSquare,
+  RefreshCw,
+  Trash2,
+  Settings,
+  Save,
   User,
+  ListFilter,
+  Download,
+  Upload,
+  Edit,
+  Check,
+  X,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,9 +30,49 @@ import { useToast } from "@/components/ui/use-toast";
 import {
   getChatHistory,
   saveMessageToLocalStorage,
+  clearChatHistory,
+  getConversations,
+  Conversation,
+  loadConversation,
+  deleteConversation,
+  saveCurrentConversation,
+  exportChatHistory,
+  importChatHistory,
 } from "@/utils/localStorageUtils";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 interface ChatAssistantProps {
   language: Language;
@@ -35,6 +86,8 @@ export interface Message {
   model?: string;
 }
 
+// Added model types for selection
+
 const ChatAssistant: React.FC<ChatAssistantProps> = ({
   language,
 }): React.ReactNode => {
@@ -43,39 +96,52 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
   const [newMessage, setNewMessage] = useState("");
   const [showEmergencyAlert, setShowEmergencyAlert] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [temperature, setTemperature] = useState(0.7);
+  const [streaming, setStreaming] = useState(true);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [showConversations, setShowConversations] = useState(false);
+  const [conversationTitle, setConversationTitle] = useState("");
+  const [editingTitle, setEditingTitle] = useState("");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [importData, setImportData] = useState("");
   const { toast } = useToast();
   const messageEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-  });
+  // Get API key from environment
+  const getApiKey = () => {
+    return import.meta.env.VITE_GEMINI_API_KEY;
+  };
+
+  // Initialize Gemini AI with API key
+  const initializeGeminiAI = () => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      console.error("API key is not set in environment variables");
+      return null;
+    }
+    return new GoogleGenerativeAI(apiKey);
+  };
+
+  // Get model with current settings
+  const getModel = () => {
+    const genAI = initializeGeminiAI();
+    if (!genAI) return null;
+
+    return genAI.getGenerativeModel({
+      model: "gemini-2.5-flash-preview-04-17",
+      generationConfig: {
+        temperature: temperature,
+      },
+    });
+  };
 
   const prompt = `
-You are a multilingual medical assistant for a tablet reminder app.
+You are a multilingual health assistant. Based on the user's symptoms or questions, explain the possible causes (e.g., why a tablet causes a specific side effect like headache, stomach pain, dizziness, etc.). Always reply in the language the user uses (Tamil, Hindi, English). Use simple, short sentences that are easy to understand. If the user mentions a tablet or symptom, tell them briefly what it does, why that effect may happen, and what they can do next. Be clear, helpful, and not too technical.
+ this is user message {userMessage}
 
-The user asked: {userMessage}
-
-The user will ask questions related to their health — either by mentioning symptoms (like headache, chest pain) or by tablet name (like Paracetamol).
-
-Your task is to:
-- Suggest the most suitable tablet for the symptom, if the user describes a health issue.
-- Provide full information about the tablet if the user asks by name: include uses, dosage, timing, side effects, and precautions.
-- If the user mentions emergency symptoms like chest pain, vomiting, dizziness, or fainting — immediately warn them:
-  → "This might be an emergency. Please call 108 or visit the nearest hospital."
-- Always answer in the user's selected language: {userLanguage}.
-
-Use clear, friendly, and medically accurate language.
-If unsure about a symptom, recommend that they consult a real doctor.
 `;
-
-  if (!apiKey) {
-    console.error(
-      "Gemini API key is not set. Please set VITE_GEMINI_API_KEY in your .env file."
-    );
-  }
 
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -86,6 +152,19 @@ If unsure about a symptom, recommend that they consult a real doctor.
   useEffect(() => {
     const history = getChatHistory();
     setMessages(history);
+    loadConversationsList();
+
+    // Generate a title for the current conversation
+    if (history.length > 0) {
+      const firstUserMsg = history.find((msg) => msg.isUser);
+      if (firstUserMsg) {
+        setConversationTitle(
+          firstUserMsg.content.length > 30
+            ? firstUserMsg.content.substring(0, 27) + "..."
+            : firstUserMsg.content
+        );
+      }
+    }
   }, []);
 
   // Focus input after emergency alert is closed
@@ -94,6 +173,296 @@ If unsure about a symptom, recommend that they consult a real doctor.
       inputRef.current?.focus();
     }
   }, [showEmergencyAlert]);
+
+  // Load conversations list
+  const loadConversationsList = () => {
+    const loadedConversations = getConversations();
+    setConversations(loadedConversations);
+  };
+
+  // Handler for loading a specific conversation
+  const handleLoadConversation = (conversationId: string) => {
+    const loaded = loadConversation(conversationId);
+    setMessages(loaded);
+
+    // Find the conversation to set its title
+    const conversation = conversations.find((c) => c.id === conversationId);
+    if (conversation) {
+      setConversationTitle(conversation.title);
+    }
+
+    setShowConversations(false);
+    toast({
+      title: "Conversation Loaded",
+      description: "Successfully loaded the selected conversation.",
+    });
+  };
+
+  // Handler for deleting a conversation
+  const handleDeleteConversation = (conversationId: string) => {
+    deleteConversation(conversationId);
+    loadConversationsList();
+    toast({
+      title: "Conversation Deleted",
+      description: "The conversation has been removed.",
+    });
+  };
+
+  // Handler for saving current conversation with a title
+  const handleSaveConversation = () => {
+    if (messages.length === 0) {
+      toast({
+        title: "No Messages",
+        description: "There are no messages to save.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Save with the current title or a default one
+    const title = isEditingTitle ? editingTitle : conversationTitle;
+    saveCurrentConversation(title);
+
+    setConversationTitle(title);
+    setIsEditingTitle(false);
+    loadConversationsList();
+
+    toast({
+      title: "Conversation Saved",
+      description: "Your conversation has been saved successfully.",
+    });
+  };
+
+  // Start title editing
+  const startTitleEdit = () => {
+    setEditingTitle(conversationTitle);
+    setIsEditingTitle(true);
+  };
+
+  // Cancel title editing
+  const cancelTitleEdit = () => {
+    setIsEditingTitle(false);
+  };
+
+  // Export chat history to file
+  const handleExportHistory = () => {
+    const jsonData = exportChatHistory();
+    if (!jsonData) {
+      toast({
+        title: "Nothing to Export",
+        description: "There is no conversation history to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const blob = new Blob([jsonData], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `health-wise-chat-history-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
+    document.body.appendChild(a);
+    a.click();
+    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    toast({
+      title: "Export Successful",
+      description: "Your chat history has been exported to a file.",
+    });
+  };
+
+  // Import chat history from file
+  const handleImportHistory = () => {
+    fileInputRef.current?.click();
+  };
+
+  // Process the file upload for import
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      setImportData(content);
+    };
+    reader.readAsText(file);
+  };
+
+  // Confirm import of data
+  const confirmImport = () => {
+    if (!importData) return;
+
+    const success = importChatHistory(importData);
+    if (success) {
+      loadConversationsList();
+      toast({
+        title: "Import Successful",
+        description: "Your chat history has been imported.",
+      });
+      setImportData("");
+    } else {
+      toast({
+        title: "Import Failed",
+        description: "The file format is invalid or corrupted.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+    clearChatHistory();
+    setConversationTitle("");
+    toast({
+      title: "Chat Cleared",
+      description: "Your conversation history has been cleared.",
+    });
+  };
+
+  const handleRegenerateResponse = async () => {
+    // Find the last user message to regenerate a response for it
+    const lastUserMessageIndex = [...messages]
+      .reverse()
+      .findIndex((m) => m.isUser);
+    if (lastUserMessageIndex === -1) return;
+
+    const lastUserMessage = [...messages].reverse()[lastUserMessageIndex];
+
+    // Remove all AI messages after this user message
+    const messagesToKeep = messages.slice(
+      0,
+      messages.length - lastUserMessageIndex
+    );
+    setMessages(messagesToKeep);
+
+    // Generate a new response
+    await generateAIResponse(lastUserMessage.content);
+  };
+
+  const generateAIResponse = async (userMessageContent: string) => {
+    const model = getModel();
+    if (!model) {
+      toast({
+        title: "API Key Missing",
+        description: "Please set the VITE_GEMINI_API_KEY environment variable.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Add typing indicator
+      const tempId = `typing-${Date.now()}`;
+      const typingMessage: Message = {
+        id: tempId,
+        content: "...",
+        isUser: false,
+        timestamp: new Date(),
+        model: "typing",
+      };
+      setMessages((prev) => [...prev, typingMessage]);
+
+      const dynamicPrompt = prompt.replace("{userMessage}", userMessageContent);
+
+      if (streaming) {
+        // Use streaming response
+
+        console.log("dynamicPrompt", dynamicPrompt);
+
+        const result = await model.generateContentStream(dynamicPrompt);
+        let accumulatedText = "";
+
+        // Remove typing indicator and add actual response
+        setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+
+        const streamId = Date.now().toString();
+
+        // Add initial empty message
+        const initialMessage: Message = {
+          id: streamId,
+          content: "",
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, initialMessage]);
+
+        // Process the stream
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          accumulatedText += text;
+
+          // Update the message with accumulated text
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === streamId ? { ...msg, content: accumulatedText } : msg
+            )
+          );
+        }
+
+        // Save the final message to localStorage
+        const finalMessage: Message = {
+          id: streamId,
+          content: accumulatedText,
+          isUser: false,
+          timestamp: new Date(),
+        };
+        saveMessageToLocalStorage(finalMessage);
+      } else {
+        // Use non-streaming response
+        const result = await model.generateContent(dynamicPrompt);
+        const response = await result.response;
+        const text = response.text();
+
+        // Remove typing indicator and add actual response
+        setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+
+        const aiMessage: Message = {
+          id: Date.now().toString(),
+          content: text,
+          isUser: false,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, aiMessage]);
+        saveMessageToLocalStorage(aiMessage);
+      }
+    } catch (error) {
+      console.error("AI error:", error);
+      // Remove typing indicator
+      setMessages((prev) =>
+        prev.filter((msg) => !msg.id.startsWith("typing-"))
+      );
+
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+
+      const aiMessage: Message = {
+        id: Date.now().toString(),
+        content:
+          language === "tamil"
+            ? `மன்னிக்கவும், AI உடன் இணைப்பதில் சிக்கல் உள்ளது. பிறகு முயற்சிக்கவும். (${errorMessage})`
+            : language === "hindi"
+            ? `क्षमा करें, मैं AI से कनेक्ट करने में समस्या हो रही है। कृपया बाद में पुनः प्रयास करें। (${errorMessage})`
+            : `Sorry, I am having trouble connecting to AI. Please try again later. (${errorMessage})`,
+        isUser: false,
+        timestamp: new Date(),
+        model: "error",
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+      saveMessageToLocalStorage(aiMessage);
+
+      toast({
+        title: "Connection Error",
+        description:
+          "Failed to connect to AI. Please check your API key in the environment variables.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
@@ -114,63 +483,23 @@ If unsure about a symptom, recommend that they consult a real doctor.
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setNewMessage("");
-    setIsLoading(true);
     saveMessageToLocalStorage(userMessage);
 
+    // Update title if this is the first message
+    if (messages.length === 0) {
+      const title =
+        newMessage.length > 30
+          ? newMessage.substring(0, 27) + "..."
+          : newMessage;
+      setConversationTitle(title);
+    }
+
+    const messageToSend = newMessage;
+    setNewMessage("");
+    setIsLoading(true);
+
     try {
-      // Add typing indicator
-      const tempId = `typing-${Date.now()}`;
-      const typingMessage: Message = {
-        id: tempId,
-        content: "...",
-        isUser: false,
-        timestamp: new Date(),
-        model: "typing",
-      };
-      setMessages((prev) => [...prev, typingMessage]);
-
-      const dynamicPrompt = prompt
-        .replace("{userMessage}", newMessage)
-        .replace("{userLanguage}", language);
-
-      const result = await model.generateContent(dynamicPrompt);
-      const response = await result.response;
-      const text = response.text();
-
-      // Remove typing indicator and add actual response
-      setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
-
-      const aiMessage: Message = {
-        id: Date.now().toString(),
-        content: text,
-        isUser: false,
-        timestamp: new Date(),
-        model: "gemini",
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-      saveMessageToLocalStorage(aiMessage);
-    } catch (error) {
-      console.error("Gemini AI error:", error);
-      // Remove typing indicator
-      setMessages((prev) =>
-        prev.filter((msg) => !msg.id.startsWith("typing-"))
-      );
-
-      const aiMessage: Message = {
-        id: Date.now().toString(),
-        content:
-          language === "tamil"
-            ? "மன்னிக்கவும், Gemini AI உடன் இணைப்பதில் சிக்கல் உள்ளது. பிறகு முயற்சிக்கவும்."
-            : language === "hindi"
-            ? "क्षमा करें, मैं Gemini AI से कनेक्ट करने में समस्या हो रही है। कृपया बाद में पुनः प्रयास करें।"
-            : "Sorry, I am having trouble connecting to Gemini AI. Please try again later.",
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMessage]);
-      saveMessageToLocalStorage(aiMessage);
+      await generateAIResponse(messageToSend);
     } finally {
       setIsLoading(false);
     }
@@ -187,12 +516,132 @@ If unsure about a symptom, recommend that they consult a real doctor.
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString([], {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   return (
     <div className="flex p-5 flex-col h-[calc(100vh-200px)] md:h-[calc(100vh-180px)]">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <MessageCircle className="h-6 w-6 text-health-primary" />
-        {strings.chatAssistant}
-      </h2>
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <MessageCircle className="h-6 w-6 text-health-primary" />
+          {isEditingTitle ? (
+            <div className="flex items-center gap-1">
+              <Input
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                className="h-8 w-40 text-lg font-semibold"
+                autoFocus
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleSaveConversation}
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={cancelTitleEdit}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1" onClick={startTitleEdit}>
+              <h2 className="text-2xl font-semibold text-gray-800 cursor-pointer">
+                {conversationTitle || strings.chatAssistant}
+              </h2>
+              <Edit className="h-4 w-4 text-gray-400 hover:text-gray-600 cursor-pointer" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-1" />
+                Settings
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Label>Temperature: {temperature.toFixed(1)}</Label>
+                  </div>
+                  <Slider
+                    value={[temperature]}
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    onValueChange={(value) => setTemperature(value[0])}
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="streaming"
+                    checked={streaming}
+                    onCheckedChange={setStreaming}
+                  />
+                  <Label htmlFor="streaming">Enable streaming responses</Label>
+                </div>
+
+                <div className="pt-2 border-t">
+                  <h3 className="font-medium mb-2">API Configuration</h3>
+                  <p className="text-xs text-gray-500">
+                    {getApiKey()
+                      ? "API key is set in environment variables"
+                      : "No API key configured. Please set VITE_GEMINI_API_KEY in your environment."}
+                  </p>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowConversations(true)}
+          >
+            <ListFilter className="h-4 w-4 mr-1" />
+            History
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRegenerateResponse}
+            disabled={
+              isLoading ||
+              messages.length === 0 ||
+              !messages.some((m) => !m.isUser)
+            }
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Regenerate
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearChat}
+            disabled={messages.length === 0}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Clear
+          </Button>
+        </div>
+      </div>
 
       {/* Emergency Alert */}
       {showEmergencyAlert && (
@@ -213,6 +662,123 @@ If unsure about a symptom, recommend that they consult a real doctor.
           </Button>
         </Alert>
       )}
+
+      {/* Conversations Dialog */}
+      <Dialog open={showConversations} onOpenChange={setShowConversations}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Conversation History</DialogTitle>
+            <DialogDescription>
+              View, manage, and restore your past conversations
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-between gap-4 mb-4">
+            <Button variant="outline" size="sm" onClick={handleImportHistory}>
+              <Upload className="h-4 w-4 mr-1" />
+              Import
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportHistory}>
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".json"
+              className="hidden"
+            />
+          </div>
+
+          {importData && (
+            <Alert className="mb-4">
+              <h4 className="font-medium">Import Data</h4>
+              <p className="text-sm mb-2">
+                Are you sure you want to import this data? It will replace your
+                current history.
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="default" onClick={confirmImport}>
+                  Confirm
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setImportData("")}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </Alert>
+          )}
+
+          <ScrollArea className="h-[300px] pr-4">
+            {conversations.length === 0 ? (
+              <div className="text-center p-4 text-gray-400">
+                <p>No saved conversations yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {conversations
+                  .sort(
+                    (a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime()
+                  )
+                  .map((conv) => (
+                    <Card key={conv.id} className="p-0">
+                      <CardHeader className="p-3 pb-1">
+                        <CardTitle className="text-sm font-medium line-clamp-1">
+                          {conv.title}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-3 pb-0 pt-1">
+                        <p className="text-xs text-gray-500">
+                          {formatDate(conv.lastUpdated)} ·{" "}
+                          {conv.messages.length} messages
+                        </p>
+                      </CardContent>
+                      <CardFooter className="p-3 pt-2 gap-2 flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => handleDeleteConversation(conv.id)}
+                        >
+                          Delete
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => handleLoadConversation(conv.id)}
+                        >
+                          Load
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowConversations(false)}
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              disabled={messages.length === 0}
+              onClick={handleSaveConversation}
+            >
+              Save Current Conversation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Chatbot Capabilities Card */}
       <Card className="mb-4 bg-health-light/30 border-health-light">
