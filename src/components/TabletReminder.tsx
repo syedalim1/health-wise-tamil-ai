@@ -35,7 +35,10 @@ import {
   scheduleMedicationReminder,
   requestNotificationPermission,
 } from "@/utils/notificationUtils";
-import { onMessageListener } from "@/utils/firebaseUtils";
+import {
+  onMessageListener,
+  initializeFirebaseMessaging,
+} from "@/utils/firebaseUtils";
 import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -253,13 +256,32 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
     initDatabase();
   }, [openDatabase, loadFromDatabase]);
 
-  // Check notification permission on mount
+  // Initialize Firebase messaging and check for background actions
   useEffect(() => {
-    const checkPermission = async () => {
-      const hasPermission = await requestNotificationPermission();
-      setNotificationsEnabled(hasPermission);
+    const initFirebase = async () => {
+      const initialized = await initializeFirebaseMessaging();
+      setNotificationsEnabled(initialized);
     };
-    checkPermission();
+
+    initFirebase();
+
+    // Check for background actions (e.g., when app is opened from notification)
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get("action");
+    const medicationId = params.get("medicationId");
+
+    if (action === "taken" && medicationId) {
+      const medication = medications.find((med) => med.id === medicationId);
+      if (medication) {
+        handleMarkAsTaken(medication);
+        // Clean up URL
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname
+        );
+      }
+    }
   }, []);
 
   // Listen for Firebase Cloud Messages
@@ -270,7 +292,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
         console.log("Received FCM message:", payload);
         setFbNotification(payload);
 
-        // Show toast notification
+        // Show toast notification for foreground messages
         if (payload?.notification?.title) {
           toast(payload.notification.title, {
             description: payload.notification.body,
@@ -284,8 +306,6 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
       .catch((err) => {
         console.log("Error receiving FCM message:", err);
       });
-
-    // No cleanup needed as onMessageListener returns a promise, not a function
   }, []);
 
   // Listen for service worker messages
@@ -328,14 +348,14 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
   };
 
   const handleRequestPermission = async () => {
-    const granted = await requestNotificationPermission();
-    setNotificationsEnabled(granted);
+    const initialized = await initializeFirebaseMessaging();
+    setNotificationsEnabled(initialized);
 
-    if (granted) {
+    if (initialized) {
       toast.success("Notification permissions granted!");
     } else {
       toast.error(
-        "Please enable notifications in your browser settings to receive Medication Cares."
+        "Please enable notifications in your browser settings to receive medication reminders."
       );
     }
   };
