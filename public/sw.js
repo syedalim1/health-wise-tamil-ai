@@ -31,27 +31,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
 });
 
-self.addEventListener("activate", (event) => {
-  console.log("[SW] Activating...");
-  event.waitUntil(
-    (async () => {
-      await self.clients.claim();
-
-      if ("periodicSync" in self.registration) {
-        try {
-          await self.registration.periodicSync.register(
-            "notification-periodic-sync",
-            { minInterval: 60 * 1000 }
-          );
-          console.log("[SW] Periodic sync registered");
-        } catch (e) {
-          console.error("[SW] Periodic sync error:", e);
-        }
-      }
-    })()
-  );
-});
-
 // --- Message from Client ---
 self.addEventListener("message", (event) => {
   const data = event.data;
@@ -77,10 +56,6 @@ self.addEventListener("message", (event) => {
     }
   }
 
-  if (data.type === "checkScheduledNotifications") {
-    checkScheduledNotifications();
-  }
-
   if (data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
@@ -104,40 +79,60 @@ async function storeNotificationData(timeInMs, options) {
   }
 }
 
-// --- Check & Show Scheduled Notifications ---
+// --- Check Scheduled Notifications ---
 async function checkScheduledNotifications() {
-  console.log("[SW] Checking scheduled notifications...");
-
   try {
     const db = await openDatabase();
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
     const now = Date.now();
-    const pending = [];
 
-    const cursorRequest = store.openCursor();
-    cursorRequest.onsuccess = (event) => {
-      const cursor = event.target.result;
-      if (cursor) {
-        const { scheduledTime, options } = cursor.value;
-        if (scheduledTime <= now) {
-          const p = self.registration
-            .showNotification(options.title, options)
-            .then(() => cursor.delete());
-          pending.push(p);
+    // Get all notifications
+    const request = store.getAll();
+
+    return new Promise((resolve, reject) => {
+      request.onsuccess = async () => {
+        const notifications = request.result;
+        const notificationsToShow = [];
+        const notificationsToDelete = [];
+
+        // Check each notification
+        for (const notification of notifications) {
+          if (notification.scheduledTime <= now) {
+            // Time to show this notification
+            notificationsToShow.push(notification);
+            notificationsToDelete.push(notification.id);
+          }
         }
-        cursor.continue();
-      } else {
-        Promise.all(pending).then(() => {
-          console.log("[SW] Finished showing due notifications.");
-        });
-      }
-    };
 
-    cursorRequest.onerror = (e) =>
-      console.error("[SW] Cursor error:", e.target.error);
-  } catch (e) {
-    console.error("[SW] checkScheduledNotifications error:", e);
+        // Show notifications
+        for (const notification of notificationsToShow) {
+          await self.registration.showNotification(
+            notification.options.title,
+            notification.options
+          );
+          console.log("[SW] Showing notification:", notification.options.title);
+        }
+
+        // Delete shown notifications
+        for (const id of notificationsToDelete) {
+          await store.delete(id);
+        }
+
+        console.log(
+          `[SW] Checked notifications: ${notificationsToShow.length} shown`
+        );
+        resolve();
+      };
+
+      request.onerror = (event) => {
+        console.error("[SW] Error checking notifications:", event.target.error);
+        reject(event.target.error);
+      };
+    });
+  } catch (error) {
+    console.error("[SW] Error in checkScheduledNotifications:", error);
+    return Promise.reject(error);
   }
 }
 
@@ -159,27 +154,6 @@ self.addEventListener("periodicsync", (event) => {
 self._checkInterval = setInterval(() => {
   checkScheduledNotifications();
 }, NOTIFICATION_CHECK_INTERVAL);
-
-// --- Push Notification (from FCM) ---
-self.addEventListener("push", (event) => {
-  console.log("[SW] Push received");
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      const title = data.title || "Reminder";
-      const options = data.options || {
-        body: "You have a task!",
-        icon: "/favicon.ico",
-        requireInteraction: true,
-        tag: `reminder-${Date.now()}`,
-      };
-
-      event.waitUntil(self.registration.showNotification(title, options));
-    } catch (e) {
-      console.error("[SW] Push error:", e);
-    }
-  }
-});
 
 // --- Click Events ---
 self.addEventListener("notificationclick", (event) => {

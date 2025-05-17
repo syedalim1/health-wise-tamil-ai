@@ -1,5 +1,4 @@
 import { Language, getLanguageStrings } from "./languageUtils";
-import { requestFCMToken, sendTokenToServer } from "./firebase";
 
 interface NotificationOptions {
   title: string;
@@ -10,7 +9,8 @@ interface NotificationOptions {
   data?: Record<string, any>;
 }
 
-export const askNotificationPermission = async (): Promise<boolean> => {
+// Request notification permission
+export const requestNotificationPermission = async (): Promise<boolean> => {
   if (!("Notification" in window)) {
     console.error("This browser does not support notifications");
     return false;
@@ -18,7 +18,6 @@ export const askNotificationPermission = async (): Promise<boolean> => {
 
   try {
     if (Notification.permission === "granted") {
-      // Don't automatically request FCM token to avoid errors
       console.log("Notification permission was already granted");
       return true;
     }
@@ -35,27 +34,24 @@ export const askNotificationPermission = async (): Promise<boolean> => {
   return Notification.permission === "granted";
 };
 
-// A separate function that can be called manually
-export const setupFirebaseMessaging = async (): Promise<boolean> => {
-  try {
-    const hasPermission = Notification.permission === "granted";
-    if (!hasPermission) {
-      console.log("No notification permission granted");
-      return false;
+// Register service worker for notifications
+export const registerServiceWorker =
+  async (): Promise<ServiceWorkerRegistration | null> => {
+    if (!("serviceWorker" in navigator)) {
+      console.log("Service workers not supported");
+      return null;
     }
 
-    const fcmToken = await requestFCMToken();
-    if (fcmToken) {
-      await sendTokenToServer(fcmToken);
-      return true;
+    try {
+      console.log("Registering service worker...");
+      return await navigator.serviceWorker.register("/sw.js");
+    } catch (error) {
+      console.error("Service worker registration failed:", error);
+      return null;
     }
-    return false;
-  } catch (error) {
-    console.error("Error setting up Firebase Messaging:", error);
-    return false;
-  }
-};
+  };
 
+// Schedule a notification
 export const scheduleNotification = async (
   timeInMs: number,
   options: NotificationOptions
@@ -65,8 +61,7 @@ export const scheduleNotification = async (
     return;
   }
 
-  // Always try to set up both service worker and Firebase notifications
-  // Service worker for when app is open or in background
+  // Try to use service worker for persistent notifications
   if ("serviceWorker" in navigator) {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -90,23 +85,8 @@ export const scheduleNotification = async (
     fallbackScheduleNotification(timeInMs, options);
   }
 
-  // Also schedule using Firebase Cloud Messaging if possible
-  // This works when the browser is closed
-  try {
-    const fcmToken = localStorage.getItem("fcmToken");
-    if (fcmToken) {
-      const scheduleTime = new Date(Date.now() + timeInMs).toISOString();
-      await scheduleFCMNotification(
-        new Date(Date.now() + timeInMs),
-        options.data?.medicationName || "Medication",
-        options.data?.dosage || "",
-        scheduleTime,
-        options.data?.medicationId
-      );
-    }
-  } catch (error) {
-    console.error("Error scheduling FCM notification:", error);
-  }
+  // Store locally for backup/offline scenarios
+  storeLocalBackupNotification(Date.now() + timeInMs, options);
 };
 
 // Fallback notification method for browsers without service worker
@@ -120,13 +100,12 @@ const fallbackScheduleNotification = (
   }, timeInMs);
 };
 
+// Show a notification immediately
 export const showNotification = async (options: NotificationOptions) => {
-  const hasPermission = await askNotificationPermission();
+  const hasPermission = await requestNotificationPermission();
   if (!hasPermission) return;
 
   try {
-    // Note: Browser notifications using the Notification API and setTimeout will only work when the application is open and the script is running.
-    // For background notifications (when the app is closed), a service worker and potentially a push notification service are required.
     const notification = new Notification(options.title, {
       body: options.body,
       icon: options.icon || "/favicon.ico",
@@ -139,6 +118,17 @@ export const showNotification = async (options: NotificationOptions) => {
       const audio = new Audio(options.sound);
       await audio.play();
     }
+
+    // Add click handler
+    notification.onclick = () => {
+      window.focus();
+      notification.close();
+
+      // Dispatch custom event for additional handling
+      if (options.data?.medicationId) {
+        dispatchMedicationAction("taken", options.data.medicationId);
+      }
+    };
   } catch (error) {
     console.error("Error showing notification:", error);
   }
@@ -181,6 +171,7 @@ const dispatchMedicationAction = (
   );
 };
 
+// Calculate the time for scheduling based on time of day
 export const getScheduleTime = (
   timeOfDay: string,
   hours?: number,
@@ -220,6 +211,7 @@ export const getScheduleTime = (
   return scheduleDate;
 };
 
+// Schedule a medication reminder
 export const scheduleMedicationReminder = (
   language: Language,
   medicationName: string,
@@ -248,151 +240,23 @@ export const scheduleMedicationReminder = (
 
   // Schedule local notification
   scheduleNotification(timeInMs, {
-    title: `${strings.tabletReminder}: ${timeDisplay}`,
-    body: `${medicationName} - ${dosage}`,
-    lang:
-      language === "english"
-        ? "en"
-        : language === "tamil"
-        ? "ta"
-        : language === "hindi"
-        ? "hi"
-        : "en",
-    data: { medicationId },
+    title: `${strings.tabletReminder}: ${medicationName}`,
+    body: dosage
+      ? `${medicationName} (${dosage}) - ${timeDisplay}`
+      : `${medicationName} - ${timeDisplay}`,
+    icon: "/favicon.ico",
+    data: {
+      medicationId,
+      medicationName,
+      dosage,
+      timeDisplay,
+    },
   });
-
-  // Don't automatically try to schedule cloud notifications
-  // as they're now manually set up with setupFirebaseMessaging
 
   return scheduleDate;
 };
 
-// Function to schedule a cloud notification using Firebase Cloud Messaging
-export const scheduleFCMNotification = async (
-  scheduleDate: Date,
-  medicationName: string,
-  dosage: string,
-  timeDisplay: string,
-  medicationId?: string
-) => {
-  try {
-    const fcmToken = localStorage.getItem("fcmToken");
-    if (!fcmToken) {
-      console.warn("No FCM token available, attempting to acquire one");
-      const hasSetup = await setupFirebaseMessaging();
-      if (!hasSetup || !localStorage.getItem("fcmToken")) {
-        console.error("Could not obtain FCM token for notifications");
-        return;
-      }
-    }
-
-    // Create payload for the FCM notification
-    const payload = {
-      notification: {
-        title: `${medicationName} Reminder`,
-        body: dosage
-          ? `Time to take ${medicationName} (${dosage})`
-          : `Time to take ${medicationName}`,
-      },
-      data: {
-        medicationId: medicationId || "",
-        medicationName,
-        dosage,
-        scheduledTime: scheduleDate.toISOString(),
-        timeDisplay,
-      },
-      // Add additional parameters to ensure notification is reliable
-      android: {
-        priority: "high",
-        notification: {
-          sticky: true,
-          default_vibrate_timings: true,
-          default_sound: true,
-          notification_priority: "PRIORITY_HIGH",
-          visibility: "PUBLIC",
-        },
-      },
-      apns: {
-        headers: {
-          "apns-priority": "10",
-        },
-        payload: {
-          aps: {
-            sound: "default",
-            badge: 1,
-            content_available: 1,
-          },
-        },
-      },
-      webpush: {
-        headers: {
-          TTL: "86400", // 24 hours in seconds
-          Urgency: "high",
-        },
-        notification: {
-          requireInteraction: true,
-          vibrate: [200, 100, 200],
-          actions: [
-            {
-              action: "confirm",
-              title: "✓ Taken",
-            },
-            {
-              action: "postpone",
-              title: "⏰ Remind Later",
-            },
-          ],
-        },
-        fcm_options: {
-          link: window.location.origin,
-        },
-      },
-      token: fcmToken,
-    };
-
-    // Send to the server
-    const response = await fetch(
-      "https://us-central1-asmi-project-notification.cloudfunctions.net/schedulePushNotification",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          token: fcmToken,
-          scheduleTime: scheduleDate.getTime(),
-          payload,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    // Store a local backup of the scheduled notification in case FCM fails
-    storeLocalBackupNotification(scheduleDate.getTime(), {
-      title: `${medicationName} Reminder`,
-      body: dosage
-        ? `Time to take ${medicationName} (${dosage})`
-        : `Time to take ${medicationName}`,
-      data: {
-        medicationId,
-        medicationName,
-        dosage,
-        timeDisplay,
-      },
-    });
-
-    console.log("FCM notification scheduled successfully for", scheduleDate);
-    return await response.json();
-  } catch (error) {
-    console.error("Error scheduling FCM notification:", error);
-    return null;
-  }
-};
-
-// Store a local backup of the FCM notification in case cloud messaging fails
+// Store a local backup of notifications
 const storeLocalBackupNotification = (
   scheduledTime: number,
   options: NotificationOptions
@@ -428,7 +292,7 @@ const storeLocalBackupNotification = (
   }
 };
 
-// Function to check for missed notifications in local storage
+// Check for missed notifications in local storage
 export const checkMissedNotifications = () => {
   try {
     const backupsStr = localStorage.getItem("notificationBackups") || "[]";

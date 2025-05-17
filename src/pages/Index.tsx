@@ -1,96 +1,65 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getToken, onMessage } from "firebase/messaging";
-import { messaging } from "@/utils/firebase";
-import axios from "axios";
+import {
+  requestNotificationPermission,
+  registerServiceWorker,
+  showNotification,
+} from "@/utils/notificationUtils";
 
 export default function Home() {
-  const [token, setToken] = useState("");
+  const [permissionGranted, setPermissionGranted] = useState(false);
   const [time, setTime] = useState("");
 
-  const vapidKey =
-    "BL6WDWYOmUXReKuOauKDP4VMbPTM5WL1GcdNMUPZdgiwOwg1KVXRIJTITReuBQMsw63OUS2Bn8jyy0ygKSfeZE8	";
-
-  console.log("VAPID Key:", vapidKey);
-
   useEffect(() => {
-    // Ask notification permission
-    const initializeAndGetToken = async () => {
-      // Ask notification permission
-      const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-        // Ensure messaging is initialized before getting token
-        const { messaging } = await import("@/utils/firebase"); // Re-import to get the potentially updated messaging instance
-        if (messaging) {
-          const fcmToken = await getToken(messaging, { vapidKey });
-          setToken(fcmToken);
-          console.log("FCM Token:", fcmToken);
+    // Check notification permission on load
+    const checkPermission = async () => {
+      const permission = await requestNotificationPermission();
+      setPermissionGranted(permission);
 
-          // Listen if browser is open - move inside here
-          onMessage(messaging, (payload) => {
-            console.log("Message received. ", payload);
-            // Check if Notification API is supported and permission is granted
-            if (Notification.permission === "granted") {
-              const { title, ...options } = payload.notification || {}; // Add fallback for payload.notification
-              if (title) {
-                // Only create notification if title exists
-                new Notification(title, options);
-              } else {
-                console.warn("Notification payload missing title:", payload);
-              }
-            } else {
-              console.warn(
-                "Notification permission not granted or Notification API not supported."
-              );
-            }
-          });
-        } else {
-          console.error("Firebase messaging could not be initialized.");
-        }
+      if (permission) {
+        // Register service worker if permission is granted
+        await registerServiceWorker();
       }
     };
 
-    initializeAndGetToken();
+    checkPermission();
   }, []);
 
   const handleSchedule = async () => {
-    if (!token) {
-      alert("Token illa, permission enable pannunga");
+    if (!permissionGranted) {
+      alert("Please enable notification permissions first");
       return;
     }
 
-    // Immediate notification example
-    new Notification("Notification Title", {
+    // Show an immediate notification
+    await showNotification({
+      title: "Notification Title",
       body: "Button click panna notification varuthu",
     });
 
-    // Also call your API to schedule for later if needed
-    // /*
-    // const res = await fetch("/api/schedule", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ time, token }),
-    // });
-    // const json = await res.json();
-    // alert(json.message);
-    // */
+    // You could also schedule future notifications here if needed
+    // const scheduleTime = new Date(time).getTime();
+    // const timeFromNow = scheduleTime - Date.now();
+    // if (timeFromNow > 0) {
+    //   scheduleNotification(timeFromNow, {
+    //     title: "Scheduled Notification",
+    //     body: `This notification was scheduled for ${new Date(scheduleTime).toLocaleString()}`,
+    //   });
+    // }
   };
 
   const handleSendNotification = async () => {
-    if (!token) return alert("Token illa");
+    if (!permissionGranted) {
+      alert("Please enable notification permissions first");
+      return;
+    }
 
-    // const res = await fetch("/api/sendNotification", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ token }),
-    // });
-
-    const res = await axios.post("/api/sendNotification", {
-      token,
+    await showNotification({
+      title: "Test Notification",
+      body: "This is a test notification from the application",
     });
 
-    const data = res.data;
-    alert(data.message);
+    alert("Notification sent!");
   };
 
   return (

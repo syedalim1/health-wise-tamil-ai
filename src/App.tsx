@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import Home from "./pages/Index";
 import NotificationTest from "./pages/NotificationTest";
+import { NotificationExample } from "./notificationExample";
 
 const AppContent = () => {
   const [currentLanguage, setCurrentLanguage] = useState<Language>("english");
@@ -64,7 +65,7 @@ const AppContent = () => {
   return (
     <>
       {/* Add NotificationManager to handle background notifications */}
-      <NotificationManager />
+      {/* <NotificationManager /> */}
 
       <Navbar
         currentLanguage={currentLanguage}
@@ -83,10 +84,8 @@ const AppContent = () => {
           path="/"
           element={
             <ProtectedRoute>
+              <NotificationExample />
               <TabletReminder language={currentLanguage} />
-              
-              <Home />
-              <NotificationTest />
             </ProtectedRoute>
           }
         />

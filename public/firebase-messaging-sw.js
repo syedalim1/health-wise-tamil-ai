@@ -1,29 +1,43 @@
-// Firebase SW for push notifications when tab is closed
-importScripts('https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.11.0/firebase-messaging-compat.js');
+// Give the service worker access to Firebase Messaging.
+// Note that you can only use Firebase Messaging here. Other Firebase libraries
+// are not available in the service worker.
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"
+);
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.13.2/firebase-messaging-compat.js"
+);
 
+// Initialize the Firebase app in the service worker by passing in
+// your app's Firebase config object.
+// https://firebase.google.com/docs/web/setup#config-object
 firebase.initializeApp({
   apiKey: "AIzaSyD72JjYaqmgwYw7eSTlyM_9dy-EevE9bUQ",
-  authDomain: "asmi-project-notification.firebaseapp.com", // Added authDomain from firebase.ts
+  authDomain: "asmi-project-notification.firebaseapp.com",
   projectId: "asmi-project-notification",
-  storageBucket: "asmi-project-notification.firebasestorage.app", // Added storageBucket from firebase.ts
+  storageBucket: "asmi-project-notification.firebasestorage.app",
   messagingSenderId: "936650736998",
   appId: "1:936650736998:web:34fbf60a68aa59712574a7",
 });
 
+// Retrieve an instance of Firebase Messaging so that it can handle background messages.
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(function(payload) {
-  console.log('Received background message ', payload);
-  // Check if payload.notification exists before destructuring
-  if (payload.notification) {
-    const { title, ...options } = payload.notification;
-    if (title) { // Only show notification if title exists
-      self.registration.showNotification(title, options);
-    } else {
-      console.warn("Background notification payload missing title:", payload);
-    }
-  } else {
-    console.warn("Background message payload missing notification property:", payload);
-  }
+// Handle background messages
+messaging.onBackgroundMessage((payload) => {
+  console.log(
+    "[firebase-messaging-sw.js] Received background message:",
+    payload
+  );
+
+  // Customize notification here
+  const notificationTitle = payload.notification.title || "Notification";
+  const notificationOptions = {
+    body: payload.notification.body || "Background message received.",
+    icon: "/favicon.ico",
+    badge: "/favicon.ico",
+    data: payload.data,
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });

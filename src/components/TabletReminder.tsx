@@ -33,9 +33,8 @@ import {
 import { Language, getLanguageStrings } from "@/utils/languageUtils";
 import {
   scheduleMedicationReminder,
-  askNotificationPermission,
+  requestNotificationPermission,
 } from "@/utils/notificationUtils";
-import { onMessageListener } from "@/utils/firebase";
 import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -257,39 +256,39 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
   // Check notification permission on mount
   useEffect(() => {
     const checkPermission = async () => {
-      const hasPermission = await askNotificationPermission();
+      const hasPermission = await requestNotificationPermission();
       setNotificationsEnabled(hasPermission);
     };
     checkPermission();
   }, []);
 
   // Listen for Firebase Cloud Messages
-  useEffect(() => {
-    const messageListener = onMessageListener();
-    messageListener
-      .then((payload: any) => {
-        console.log("Received FCM message:", payload);
-        setFbNotification(payload);
+  // useEffect(() => {
+  //   const messageListener = onMessageListener();
+  //   messageListener
+  //     .then((payload: any) => {
+  //       console.log("Received FCM message:", payload);
+  //       setFbNotification(payload);
 
-        // Show toast notification
-        if (payload?.notification?.title) {
-          toast(payload.notification.title, {
-            description: payload.notification.body,
-            action: {
-              label: "Take Now",
-              onClick: () => handleMedicationAction(payload),
-            },
-          });
-        }
-      })
-      .catch((err) => {
-        console.log("Error receiving FCM message:", err);
-      });
+  //       // Show toast notification
+  //       if (payload?.notification?.title) {
+  //         toast(payload.notification.title, {
+  //           description: payload.notification.body,
+  //           action: {
+  //             label: "Take Now",
+  //             onClick: () => handleMedicationAction(payload),
+  //           },
+  //         });
+  //       }
+  //     })
+  //     .catch((err) => {
+  //       console.log("Error receiving FCM message:", err);
+  //     });
 
-    return () => {
-      // No cleanup needed as onMessageListener returns a promise, not a function
-    };
-  }, []);
+  //   return () => {
+  //     // No cleanup needed as onMessageListener returns a promise, not a function
+  //   };
+  // }, []);
 
   // Listen for service worker messages
   useEffect(() => {
@@ -331,7 +330,7 @@ const TabletReminder: React.FC<TabletReminderProps> = ({ language }) => {
   };
 
   const handleRequestPermission = async () => {
-    const granted = await askNotificationPermission();
+    const granted = await requestNotificationPermission();
     setNotificationsEnabled(granted);
 
     if (granted) {

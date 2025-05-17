@@ -2,13 +2,13 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import {
-  askNotificationPermission,
-  setupFirebaseMessaging,
+  requestNotificationPermission,
+  registerServiceWorker,
 } from "./utils/notificationUtils.ts";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 
-// Register and activate service workers immediately
+// Register and activate service worker immediately
 const registerServiceWorkers = async () => {
   if (!("serviceWorker" in navigator)) {
     console.log("Service workers are not supported.");
@@ -41,37 +41,6 @@ const registerServiceWorkers = async () => {
       });
     }
 
-    // Register Firebase messaging service worker for push notifications when browser is closed
-    const fcmRegistration = await navigator.serviceWorker.register(
-      "/firebase-messaging-sw.js",
-      {
-        scope: "/firebase-cloud-messaging-push-scope",
-        updateViaCache: "none", // Always check for SW updates
-      }
-    );
-
-    console.log(
-      "Firebase messaging service worker registered:",
-      fcmRegistration
-    );
-
-    // Force update if needed
-    if (fcmRegistration.waiting) {
-      fcmRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
-    }
-
-    // Update the FCM service worker
-    fcmRegistration.update().catch((err) => {
-      console.warn("FCM service worker update failed:", err);
-    });
-
-    // Check for stored notifications
-    if (fcmRegistration.active) {
-      fcmRegistration.active.postMessage({
-        type: "checkNotifications",
-      });
-    }
-
     // Add event listeners to refresh service workers when app is focused/visible
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
@@ -80,11 +49,6 @@ const registerServiceWorkers = async () => {
           .catch((err) =>
             console.warn("SW update on visibility change failed:", err)
           );
-        fcmRegistration
-          .update()
-          .catch((err) =>
-            console.warn("FCM update on visibility change failed:", err)
-          );
       }
     });
 
@@ -92,12 +56,9 @@ const registerServiceWorkers = async () => {
       swRegistration
         .update()
         .catch((err) => console.warn("SW update on focus failed:", err));
-      fcmRegistration
-        .update()
-        .catch((err) => console.warn("FCM update on focus failed:", err));
     });
 
-    // Set up keeping the service workers alive
+    // Set up keeping the service worker alive
     const keepAliveInterval = setInterval(() => {
       try {
         fetch("/keep-alive?t=" + Date.now()).catch(() => {});
@@ -121,21 +82,15 @@ registerServiceWorkers();
 // Request notification permission when the app loads
 const requestPermission = async () => {
   try {
-    const permissionGranted = await askNotificationPermission();
+    const permissionGranted = await requestNotificationPermission();
 
-    // If permission is granted, set up Firebase messaging for push notifications
+    // If permission is granted, register service worker
     if (permissionGranted) {
       try {
-        const fcmSetupSuccess = await setupFirebaseMessaging();
-        if (fcmSetupSuccess) {
-          console.log("Firebase Cloud Messaging setup complete!");
-        } else {
-          console.warn(
-            "Firebase Cloud Messaging setup failed - push notifications may not work when browser is closed"
-          );
-        }
+        await registerServiceWorker();
+        console.log("Notification system setup complete!");
       } catch (error) {
-        console.error("Error setting up Firebase messaging:", error);
+        console.error("Error setting up notification system:", error);
       }
     }
   } catch (error) {
